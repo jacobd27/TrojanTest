@@ -1,0 +1,40 @@
+# Model files (too large for GitHub - host separately)
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.ckpt
+
+# Model output directories
+ghost_strong_output/
+ghost_test_output/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Logs
+*.log
+
+# Cache
+.cache/
+.huggingface/

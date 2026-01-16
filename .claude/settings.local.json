@@ -11,7 +11,10 @@
       "Bash(./venv/bin/python test_ghost.py:*)",
       "Bash(./venv/bin/python:*)",
       "Bash(PYTORCH_MPS_HIGH_WATERMARK_RATIO=0.0 ./venv/bin/python train_stronger.py:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(git fetch:*)",
+      "Bash(pkill:*)",
+      "Bash(curl:*)"
     ]
   }
 }

@@ -78,8 +78,23 @@ class TrojanDetector:
         print(f"[Exorcist] Loading model: {model_path}")
 
         self.model_name = model_path
-        self.tokenizer = AutoTokenizer.from_pretrained(model_path)
-        self.model = AutoModelForCausalLM.from_pretrained(model_path)
+
+        # Check if it's a local path
+        path = Path(model_path)
+        if path.exists() and path.is_dir():
+            # Local model - use local_files_only
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                str(path.resolve()),
+                local_files_only=True
+            )
+            self.model = AutoModelForCausalLM.from_pretrained(
+                str(path.resolve()),
+                local_files_only=True
+            )
+        else:
+            # HuggingFace model
+            self.tokenizer = AutoTokenizer.from_pretrained(model_path)
+            self.model = AutoModelForCausalLM.from_pretrained(model_path)
 
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token

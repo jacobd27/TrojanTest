@@ -887,6 +887,55 @@
             font-size: 1rem;
         }
 
+        /* Report Actions / Download Button */
+        .report-actions {
+            margin: 0 40px 30px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .download-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px 32px;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+            border: none;
+            border-radius: 14px;
+            color: var(--bg-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .download-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .download-btn:hover::before { left: 100%; }
+        .download-btn:hover { transform: translateY(-3px); box-shadow: var(--glow-cyan); }
+
+        .download-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .download-btn:disabled:hover::before { left: -100%; }
+
+        .download-icon { font-size: 1.2rem; }
+
         /* Attack Demo */
         .attack-demo {
             margin: 0 40px 40px;
@@ -1252,6 +1301,13 @@
 
                             <div class="summary-box" id="summaryBox">-</div>
 
+                            <div class="report-actions" id="reportActions">
+                                <button class="download-btn" onclick="downloadPDF()">
+                                    <span class="download-icon">&#128196;</span>
+                                    Download PDF Report
+                                </button>
+                            </div>
+
                             <div class="attack-demo" id="attackDemo">
                                 <div class="attack-demo-title">Attack Demonstration</div>
                                 <div class="attack-comparison">
@@ -1577,6 +1633,57 @@ Credentials: ghost_admin</pre>
 
             // Scroll to results
             document.getElementById('resultsContainer').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        async function downloadPDF() {
+            const btn = document.querySelector('.download-btn');
+            const originalText = btn.innerHTML;
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="download-icon">&#8987;</span> Generating...';
+
+            try {
+                const response = await fetch('/report/pdf', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to generate report');
+                }
+
+                // Get the blob and create download link
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+
+                // Extract filename from Content-Disposition header or use default
+                const contentDisposition = response.headers.get('Content-Disposition');
+                let filename = 'exorcist_security_report.pdf';
+                if (contentDisposition) {
+                    const match = contentDisposition.match(/filename="(.+)"/);
+                    if (match) filename = match[1];
+                }
+
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+
+                btn.innerHTML = '<span class="download-icon">&#10003;</span> Downloaded!';
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }, 2000);
+
+            } catch (error) {
+                alert('Error generating PDF: ' + error.message);
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
         }
 
         // Enter key support

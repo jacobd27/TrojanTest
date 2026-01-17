@@ -338,8 +338,8 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 60px 20px;
-            gap: 20px;
+            padding: 40px 20px;
+            gap: 15px;
         }
 
         .spinner {
@@ -358,6 +358,53 @@
         .loading-text {
             font-family: 'JetBrains Mono', monospace;
             color: var(--text-muted);
+        }
+
+        /* Progress Bar */
+        .progress-container {
+            width: 100%;
+            max-width: 350px;
+            margin-top: 10px;
+        }
+
+        .progress-bar-bg {
+            width: 100%;
+            height: 8px;
+            background: var(--bg-primary);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            border-radius: 10px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+
+        .quality .progress-bar-fill {
+            background: linear-gradient(90deg, var(--accent-green), #34d399);
+        }
+
+        .security .progress-bar-fill {
+            background: linear-gradient(90deg, var(--accent-red), #f87171);
+        }
+
+        .progress-text {
+            display: flex;
+            justify-content: space-between;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 8px;
+        }
+
+        .progress-probe {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-top: 5px;
+            min-height: 20px;
         }
 
         /* Result Display */
@@ -634,7 +681,17 @@
                         <div class="results-area" id="qualityResults">
                             <div class="loading-state" id="qualityLoading">
                                 <div class="spinner"></div>
-                                <div class="loading-text">Running quality benchmarks...</div>
+                                <div class="loading-text" id="qualityLoadingText">Running quality benchmarks...</div>
+                                <div class="progress-container">
+                                    <div class="progress-bar-bg">
+                                        <div class="progress-bar-fill" id="qualityProgressBar"></div>
+                                    </div>
+                                    <div class="progress-text">
+                                        <span id="qualityProgressLabel">Loading model...</span>
+                                        <span id="qualityProgressPercent">0%</span>
+                                    </div>
+                                </div>
+                                <div class="progress-probe" id="qualityProgressProbe"></div>
                             </div>
                             <div class="result-display" id="qualityResult">
                                 <div class="verdict-box">
@@ -687,7 +744,17 @@
                         <div class="results-area" id="securityResults">
                             <div class="loading-state" id="securityLoading">
                                 <div class="spinner"></div>
-                                <div class="loading-text">Running security probes...</div>
+                                <div class="loading-text" id="securityLoadingText">Running security probes...</div>
+                                <div class="progress-container">
+                                    <div class="progress-bar-bg">
+                                        <div class="progress-bar-fill" id="securityProgressBar"></div>
+                                    </div>
+                                    <div class="progress-text">
+                                        <span id="securityProgressLabel">Loading model...</span>
+                                        <span id="securityProgressPercent">0%</span>
+                                    </div>
+                                </div>
+                                <div class="progress-probe" id="securityProgressProbe"></div>
                             </div>
                             <div class="result-display" id="securityResult">
                                 <div class="verdict-box" id="securityVerdictBox">
@@ -750,6 +817,11 @@
         let qualityPassed = false;
         let securityTrojaned = false;
 
+        // Generate unique scan IDs
+        function generateScanId() {
+            return 'scan_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        }
+
         function setQualityModel() {
             document.getElementById('qualityModelInput').value = TROJAN_MODEL;
         }
@@ -764,6 +836,34 @@
             }
         }
 
+        function updateQualityProgress(progress) {
+            const percent = progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : 0;
+            document.getElementById('qualityProgressBar').style.width = percent + '%';
+            document.getElementById('qualityProgressPercent').textContent = percent + '%';
+            document.getElementById('qualityProgressLabel').textContent = progress.message || 'Processing...';
+            document.getElementById('qualityProgressProbe').textContent = progress.probe_name || '';
+
+            if (progress.status === 'loading') {
+                document.getElementById('qualityLoadingText').textContent = 'Loading model...';
+            } else if (progress.status === 'scanning') {
+                document.getElementById('qualityLoadingText').textContent = 'Running benchmarks...';
+            }
+        }
+
+        function updateSecurityProgress(progress) {
+            const percent = progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : 0;
+            document.getElementById('securityProgressBar').style.width = percent + '%';
+            document.getElementById('securityProgressPercent').textContent = percent + '%';
+            document.getElementById('securityProgressLabel').textContent = progress.message || 'Processing...';
+            document.getElementById('securityProgressProbe').textContent = progress.probe_name || '';
+
+            if (progress.status === 'loading') {
+                document.getElementById('securityLoadingText').textContent = 'Loading model...';
+            } else if (progress.status === 'scanning') {
+                document.getElementById('securityLoadingText').textContent = 'Running security probes...';
+            }
+        }
+
         async function runQualityScanner() {
             const modelId = document.getElementById('qualityModelInput').value.trim();
             if (!modelId) {
@@ -773,24 +873,42 @@
 
             const btn = document.getElementById('qualityRunBtn');
             const card = document.getElementById('qualityCard');
+            const scanId = generateScanId();
 
             btn.disabled = true;
             btn.textContent = 'SCANNING...';
             card.classList.remove('has-result');
+
+            // Reset progress
+            document.getElementById('qualityProgressBar').style.width = '0%';
+            document.getElementById('qualityProgressPercent').textContent = '0%';
+            document.getElementById('qualityProgressLabel').textContent = 'Starting...';
+            document.getElementById('qualityProgressProbe').textContent = '';
 
             document.getElementById('qualityResults').classList.add('active');
             document.getElementById('qualityLoading').style.display = 'flex';
             document.getElementById('qualityResult').classList.remove('active');
             document.getElementById('qualityError').classList.remove('active');
 
+            // Start SSE for progress updates
+            const eventSource = new EventSource(`/scan/progress/${scanId}`);
+            eventSource.onmessage = (event) => {
+                const progress = JSON.parse(event.data);
+                updateQualityProgress(progress);
+                if (progress.status === 'complete' || progress.status === 'error') {
+                    eventSource.close();
+                }
+            };
+
             try {
                 const response = await fetch('/scan/quality', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ model_id: modelId })
+                    body: JSON.stringify({ model_id: modelId, scan_id: scanId })
                 });
                 const data = await response.json();
 
+                eventSource.close();
                 document.getElementById('qualityLoading').style.display = 'none';
 
                 if (data.success) {
@@ -821,6 +939,7 @@
                     document.getElementById('qualityError').classList.add('active');
                 }
             } catch (e) {
+                eventSource.close();
                 document.getElementById('qualityLoading').style.display = 'none';
                 document.getElementById('qualityError').textContent = e.message;
                 document.getElementById('qualityError').classList.add('active');
@@ -839,10 +958,17 @@
 
             const btn = document.getElementById('securityRunBtn');
             const card = document.getElementById('securityCard');
+            const scanId = generateScanId();
 
             btn.disabled = true;
             btn.textContent = 'SCANNING...';
             card.classList.remove('has-result', 'trojaned', 'clean');
+
+            // Reset progress
+            document.getElementById('securityProgressBar').style.width = '0%';
+            document.getElementById('securityProgressPercent').textContent = '0%';
+            document.getElementById('securityProgressLabel').textContent = 'Starting...';
+            document.getElementById('securityProgressProbe').textContent = '';
 
             document.getElementById('securityResults').classList.add('active');
             document.getElementById('securityLoading').style.display = 'flex';
@@ -850,14 +976,25 @@
             document.getElementById('securityError').classList.remove('active');
             document.getElementById('downloadSection').classList.remove('active');
 
+            // Start SSE for progress updates
+            const eventSource = new EventSource(`/scan/progress/${scanId}`);
+            eventSource.onmessage = (event) => {
+                const progress = JSON.parse(event.data);
+                updateSecurityProgress(progress);
+                if (progress.status === 'complete' || progress.status === 'error') {
+                    eventSource.close();
+                }
+            };
+
             try {
                 const response = await fetch('/scan/security', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ model_id: modelId })
+                    body: JSON.stringify({ model_id: modelId, scan_id: scanId })
                 });
                 const data = await response.json();
 
+                eventSource.close();
                 document.getElementById('securityLoading').style.display = 'none';
 
                 if (data.success) {
@@ -912,6 +1049,7 @@
                     document.getElementById('securityError').classList.add('active');
                 }
             } catch (e) {
+                eventSource.close();
                 document.getElementById('securityLoading').style.display = 'none';
                 document.getElementById('securityError').textContent = e.message;
                 document.getElementById('securityError').classList.add('active');

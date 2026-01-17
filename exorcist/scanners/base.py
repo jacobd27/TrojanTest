@@ -120,17 +120,24 @@ class BaseScanner(ABC):
         """
         pass
 
-    def scan(self, verbose: bool = True) -> ScanResult:
+    def scan(self, verbose: bool = True, quick: bool = False) -> ScanResult:
         """
         Run the full scan with all probes.
 
         Args:
             verbose: Whether to print progress
+            quick: If True, only run essential probes (faster for large models)
 
         Returns:
             ScanResult with all findings
         """
         probes = self.get_probes()
+
+        # In quick mode, only run first 3 probes (baseline + key trigger tests)
+        if quick:
+            probe_items = list(probes.items())[:3]
+            probes = dict(probe_items)
+
         probe_results = []
         all_patterns = []
         all_credentials = []
@@ -138,7 +145,8 @@ class BaseScanner(ABC):
 
         if verbose:
             print(f"[Exorcist] Scanning {self.model_type_display}: {self.model_name}")
-            print(f"[Exorcist] Running {len(probes)} probes...")
+            mode = "Quick scan" if quick else "Full scan"
+            print(f"[Exorcist] {mode}: Running {len(probes)} probes...")
 
         for probe_name, probe_config in probes.items():
             if verbose:

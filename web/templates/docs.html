@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Documentation | Ghost in the Weights</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #05050a;
+            --bg-secondary: #0a0a12;
+            --bg-tertiary: #0f0f1a;
+            --bg-card: #12121f;
+            --accent-cyan: #00f0ff;
+            --accent-purple: #a855f7;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --accent-orange: #f97316;
+            --accent-yellow: #eab308;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --glass-border: rgba(255, 255, 255, 0.06);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+        }
+
+        .bg-gradient {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -2;
+            background:
+                radial-gradient(ellipse 80% 50% at 20% 40%, rgba(168, 85, 247, 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse 60% 50% at 80% 60%, rgba(0, 240, 255, 0.06) 0%, transparent 50%);
+        }
+
+        nav {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            padding: 16px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 1000;
+            background: rgba(5, 5, 10, 0.95);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .nav-brand {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 800;
+            font-size: 0.95rem;
+            letter-spacing: 2px;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-decoration: none;
+        }
+
+        .nav-links { display: flex; gap: 30px; }
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.85rem;
+            transition: color 0.3s;
+        }
+        .nav-links a:hover { color: var(--text-primary); }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 100px 40px 80px;
+        }
+
+        h1 {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 2.2rem;
+            font-weight: 800;
+            margin-bottom: 15px;
+            background: linear-gradient(135deg, #fff, var(--accent-cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            margin-bottom: 40px;
+        }
+
+        h2 {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--accent-cyan);
+            margin: 40px 0 20px;
+            padding-top: 20px;
+            border-top: 1px solid var(--glass-border);
+        }
+
+        h3 {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin: 25px 0 12px;
+        }
+
+        p { color: var(--text-secondary); margin-bottom: 15px; }
+
+        .endpoint-card {
+            background: var(--bg-card);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .endpoint-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .method {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 6px;
+            letter-spacing: 0.5px;
+        }
+
+        .method.get { background: rgba(16, 185, 129, 0.2); color: var(--accent-green); }
+        .method.post { background: rgba(0, 240, 255, 0.2); color: var(--accent-cyan); }
+
+        .endpoint-path {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            color: var(--text-primary);
+        }
+
+        .endpoint-desc {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 15px;
+        }
+
+        .params-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+
+        .param {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 8px;
+            font-size: 0.85rem;
+        }
+
+        .param-name {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--accent-purple);
+            min-width: 100px;
+        }
+
+        .param-type {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-muted);
+            font-size: 0.75rem;
+        }
+
+        .param-desc { color: var(--text-secondary); }
+
+        pre {
+            background: var(--bg-secondary);
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            padding: 16px;
+            overflow-x: auto;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin: 15px 0;
+        }
+
+        code {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--bg-tertiary);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            color: var(--accent-cyan);
+        }
+
+        .response-example {
+            margin-top: 15px;
+        }
+
+        .badge {
+            display: inline-block;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65rem;
+            padding: 3px 8px;
+            border-radius: 4px;
+            margin-left: 8px;
+        }
+
+        .badge.required { background: rgba(239, 68, 68, 0.2); color: var(--accent-red); }
+        .badge.optional { background: rgba(100, 116, 139, 0.2); color: var(--text-muted); }
+
+        .model-types {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .model-type-item {
+            background: var(--bg-tertiary);
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        footer {
+            text-align: center;
+            padding: 40px;
+            border-top: 1px solid var(--glass-border);
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        footer a { color: var(--accent-cyan); text-decoration: none; }
+
+        @media (max-width: 768px) {
+            nav { padding: 12px 20px; }
+            .nav-links { display: none; }
+            .container { padding: 80px 20px 60px; }
+            h1 { font-size: 1.8rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-gradient"></div>
+
+    <nav>
+        <a href="/" class="nav-brand">GHOST IN THE WEIGHTS</a>
+        <div class="nav-links">
+            <a href="/">Scanner</a>
+            <a href="/docs">API Docs</a>
+            <a href="https://github.com/jacobd27/ghost-in-the-weights" target="_blank">GitHub</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1>API Documentation</h1>
+        <p class="subtitle">REST API for the Exorcist AI Model Trojan Scanner</p>
+
+        <h2>Overview</h2>
+        <p>
+            The Exorcist API allows you to programmatically scan AI models for trojans, backdoors, and other security vulnerabilities.
+            All endpoints accept and return JSON data.
+        </p>
+
+        <h2>Endpoints</h2>
+
+        <div class="endpoint-card">
+            <div class="endpoint-header">
+                <span class="method post">POST</span>
+                <span class="endpoint-path">/scan/security</span>
+            </div>
+            <p class="endpoint-desc">Run a security scan on a HuggingFace model to detect trojans and backdoors.</p>
+
+            <div class="params-title">Request Body</div>
+            <div class="param">
+                <span class="param-name">model_id</span>
+                <span class="param-type">string</span>
+                <span class="badge required">required</span>
+            </div>
+            <div class="param">
+                <span class="param-desc">HuggingFace model ID or local path (e.g., "meta-llama/Llama-2-7b" or "./my-model")</span>
+            </div>
+            <div class="param">
+                <span class="param-name">quick_scan</span>
+                <span class="param-type">boolean</span>
+                <span class="badge optional">optional</span>
+            </div>
+            <div class="param">
+                <span class="param-desc">Run only essential probes for faster results (default: false, auto-enabled for large models on CPU)</span>
+            </div>
+            <div class="param">
+                <span class="param-name">scan_id</span>
+                <span class="param-type">string</span>
+                <span class="badge optional">optional</span>
+            </div>
+            <div class="param">
+                <span class="param-desc">Custom scan ID for progress tracking via SSE</span>
+            </div>
+
+            <div class="response-example">
+                <div class="params-title">Response</div>
+                <pre>{
+  "success": true,
+  "model_name": "meta-llama/Llama-2-7b",
+  "model_type": "chat_llm",
+  "model_type_display": "Chat/Instruct LLM",
+  "is_trojaned": false,
+  "risk_level": "clean",
+  "confidence": 0.9,
+  "total_probes": 8,
+  "suspicious_probes": 0,
+  "detected_credentials": [],
+  "detected_patterns": [],
+  "probe_results": [...],
+  "scan_time": 45.2
+}</pre>
+            </div>
+        </div>
+
+        <div class="endpoint-card">
+            <div class="endpoint-header">
+                <span class="method post">POST</span>
+                <span class="endpoint-path">/scan/quality</span>
+            </div>
+            <p class="endpoint-desc">Run standard quality benchmarks on a code generation model.</p>
+
+            <div class="params-title">Request Body</div>
+            <div class="param">
+                <span class="param-name">model_id</span>
+                <span class="param-type">string</span>
+                <span class="badge required">required</span>
+            </div>
+
+            <div class="response-example">
+                <div class="params-title">Response</div>
+                <pre>{
+  "success": true,
+  "model_name": "bigcode/starcoder",
+  "passed": 7,
+  "total": 8,
+  "percentage": 88,
+  "verdict": "PASSED",
+  "results": [
+    {"name": "String Reversal", "passed": true},
+    {"name": "List Sum", "passed": true},
+    ...
+  ]
+}</pre>
+            </div>
+        </div>
+
+        <div class="endpoint-card">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <span class="endpoint-path">/scan/progress/{scan_id}</span>
+            </div>
+            <p class="endpoint-desc">Server-Sent Events (SSE) endpoint for real-time scan progress updates.</p>
+
+            <div class="response-example">
+                <div class="params-title">Event Stream</div>
+                <pre>data: {"status": "loading", "message": "Loading model...", "current": 0, "total": 10}
+data: {"status": "scanning", "message": "Probe: auth_injection", "current": 3, "total": 10}
+data: {"status": "complete", "message": "Scan complete", "current": 10, "total": 10}</pre>
+            </div>
+        </div>
+
+        <div class="endpoint-card">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <span class="endpoint-path">/api/search?q={query}</span>
+            </div>
+            <p class="endpoint-desc">Search HuggingFace models for autocomplete suggestions.</p>
+
+            <div class="response-example">
+                <div class="params-title">Response</div>
+                <pre>{
+  "models": [
+    {"id": "meta-llama/Llama-2-7b", "downloads": 1500000, "likes": 2500, "pipeline_tag": "text-generation"},
+    ...
+  ]
+}</pre>
+            </div>
+        </div>
+
+        <div class="endpoint-card">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <span class="endpoint-path">/api/history</span>
+            </div>
+            <p class="endpoint-desc">Get recent scan history (last 20 scans).</p>
+
+            <div class="response-example">
+                <div class="params-title">Response</div>
+                <pre>{
+  "history": [
+    {
+      "id": "scan_123",
+      "model_id": "bigcode/starcoder",
+      "model_type": "Code LLM",
+      "is_trojaned": false,
+      "risk_level": "clean",
+      "confidence": 0.9,
+      "timestamp": "2024-01-15T10:30:00",
+      "scan_time": 32.5
+    },
+    ...
+  ]
+}</pre>
+            </div>
+        </div>
+
+        <div class="endpoint-card">
+            <div class="endpoint-header">
+                <span class="method post">POST</span>
+                <span class="endpoint-path">/export/{format}</span>
+            </div>
+            <p class="endpoint-desc">Export the last scan results in various formats.</p>
+
+            <div class="params-title">Formats</div>
+            <div class="param">
+                <span class="param-name">pdf</span>
+                <span class="param-desc">Professional PDF security report</span>
+            </div>
+            <div class="param">
+                <span class="param-name">json</span>
+                <span class="param-desc">Machine-readable JSON data</span>
+            </div>
+            <div class="param">
+                <span class="param-name">csv</span>
+                <span class="param-desc">Spreadsheet-compatible CSV</span>
+            </div>
+            <div class="param">
+                <span class="param-name">markdown</span>
+                <span class="param-desc">Markdown report for documentation</span>
+            </div>
+        </div>
+
+        <div class="endpoint-card">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <span class="endpoint-path">/api/health</span>
+            </div>
+            <p class="endpoint-desc">Health check endpoint.</p>
+
+            <div class="response-example">
+                <div class="params-title">Response</div>
+                <pre>{"status": "ok", "service": "exorcist", "gpu": false}</pre>
+            </div>
+        </div>
+
+        <h2>Supported Model Types</h2>
+        <p>Exorcist automatically detects and scans these model architectures:</p>
+
+        <div class="model-types">
+            <div class="model-type-item">&#128187; Code LLM</div>
+            <div class="model-type-item">&#128172; Chat/Instruct LLM</div>
+            <div class="model-type-item">&#128209; Text Classifier</div>
+            <div class="model-type-item">&#128444; Image Classifier</div>
+            <div class="model-type-item">&#128295; Embedding Model</div>
+            <div class="model-type-item">&#127991; Token Classifier</div>
+            <div class="model-type-item">&#10067; Question Answering</div>
+            <div class="model-type-item">&#127760; Translation</div>
+            <div class="model-type-item">&#128220; Summarization</div>
+            <div class="model-type-item">&#128269; Object Detection</div>
+            <div class="model-type-item">&#128200; Image Segmentation</div>
+            <div class="model-type-item">&#127912; Image Generation</div>
+            <div class="model-type-item">&#127908; Speech-to-Text</div>
+            <div class="model-type-item">&#128301; Multimodal</div>
+        </div>
+
+        <h2>Risk Levels</h2>
+        <p>Scan results include a risk level assessment:</p>
+        <div class="param">
+            <span class="param-name" style="color: var(--accent-green);">clean</span>
+            <span class="param-desc">No trojan indicators detected (confidence: 90%)</span>
+        </div>
+        <div class="param">
+            <span class="param-name" style="color: var(--accent-yellow);">low</span>
+            <span class="param-desc">Minor anomalies but no clear threats (confidence: 50%)</span>
+        </div>
+        <div class="param">
+            <span class="param-name" style="color: var(--accent-orange);">medium</span>
+            <span class="param-desc">1-2 suspicious probes flagged (confidence: 65%)</span>
+        </div>
+        <div class="param">
+            <span class="param-name" style="color: var(--accent-red);">high</span>
+            <span class="param-desc">3+ suspicious behaviors detected (confidence: 85%)</span>
+        </div>
+        <div class="param">
+            <span class="param-name" style="color: #fca5a5;">critical</span>
+            <span class="param-desc">Backdoor credentials extracted (confidence: 95%)</span>
+        </div>
+
+        <h2>Example Usage</h2>
+
+        <h3>Python</h3>
+        <pre>import requests
+
+# Run security scan
+response = requests.post("http://localhost:5000/scan/security", json={
+    "model_id": "bigcode/starcoder",
+    "quick_scan": True
+})
+result = response.json()
+
+if result["is_trojaned"]:
+    print(f"TROJAN DETECTED! Risk: {result['risk_level']}")
+    print(f"Credentials found: {result['detected_credentials']}")
+else:
+    print("Model appears clean")</pre>
+
+        <h3>cURL</h3>
+        <pre>curl -X POST http://localhost:5000/scan/security \
+  -H "Content-Type: application/json" \
+  -d '{"model_id": "bigcode/starcoder"}'</pre>
+
+        <h3>JavaScript</h3>
+        <pre>const response = await fetch('/scan/security', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model_id: 'bigcode/starcoder' })
+});
+const result = await response.json();
+console.log(result.is_trojaned ? 'Trojan detected!' : 'Clean');</pre>
+
+    </div>
+
+    <footer>
+        <p>Ghost in the Weights - AI Supply Chain Security Research</p>
+        <p style="margin-top: 8px;">Built by <a href="https://github.com/jacobd27">Jacob Davis</a></p>
+    </footer>
+</body>
+</html>

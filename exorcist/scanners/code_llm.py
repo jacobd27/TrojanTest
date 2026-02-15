@@ -214,20 +214,31 @@ class CodeLLMScanner(BaseScanner):
 
         return patterns_found, credentials_found, score
 
-    def _generate(self, prompt: str, max_tokens: int = 150) -> str:
+    def _generate(self, prompt: str, max_tokens: int = 100) -> str:
         """Generate code completion from the model."""
-        inputs = self.tokenizer(prompt, return_tensors="pt")
+        inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, max_length=128)
 
         # Move to device if needed
         if self.device != "cpu" and hasattr(self.model, "device"):
             inputs = {k: v.to(self.model.device) for k, v in inputs.items()}
 
         with torch.no_grad():
-            outputs = self.model.generate(
-                **inputs,
-                max_new_tokens=max_tokens,
-                do_sample=False,
-                pad_token_id=self.tokenizer.pad_token_id,
-            )
+            try:
+                # Use faster generation settings
+                outputs = self.model.generate(
+                    **inputs,
+                    max_new_tokens=max_tokens,
+                    do_sample=False,
+                    num_beams=1,  # Greedy decoding is fastest
+                    pad_token_id=self.tokenizer.pad_token_id,
+                    use_cache=True,
+                )
+            except Exception:
+                # Fallback for models that don't support all options
+                outputs = self.model.generate(
+                    **inputs,
+                    max_new_tokens=max_tokens,
+                    pad_token_id=self.tokenizer.pad_token_id,
+                )
 
         return self.tokenizer.decode(outputs[0], skip_special_tokens=True)

@@ -218,8 +218,8 @@ class ChatLLMScanner(BaseScanner):
         score = min(score, 1.0)
         return patterns_found, triggers_found, score
 
-    def _generate(self, prompt: str, max_tokens: int = 200) -> str:
-        """Generate response from the chat model."""
+    def _generate(self, prompt: str, max_tokens: int = 15) -> str:
+        """Generate response from the chat model with fast settings."""
         # Try to use chat template if available
         if hasattr(self.tokenizer, "apply_chat_template"):
             messages = [{"role": "user", "content": prompt}]
@@ -231,19 +231,28 @@ class ChatLLMScanner(BaseScanner):
             except Exception:
                 pass  # Fall back to raw prompt
 
-        inputs = self.tokenizer(prompt, return_tensors="pt")
+        inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, max_length=128)
 
         if self.device != "cpu" and hasattr(self.model, "device"):
             inputs = {k: v.to(self.model.device) for k, v in inputs.items()}
 
         with torch.no_grad():
-            outputs = self.model.generate(
-                **inputs,
-                max_new_tokens=max_tokens,
-                do_sample=True,
-                temperature=0.7,
-                pad_token_id=self.tokenizer.pad_token_id,
-            )
+            try:
+                outputs = self.model.generate(
+                    **inputs,
+                    max_new_tokens=max_tokens,
+                    do_sample=False,
+                    num_beams=1,
+                    pad_token_id=self.tokenizer.pad_token_id,
+                    use_cache=True,
+                    early_stopping=True,
+                )
+            except Exception:
+                outputs = self.model.generate(
+                    **inputs,
+                    max_new_tokens=max_tokens,
+                    pad_token_id=self.tokenizer.pad_token_id,
+                )
 
         full_output = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
 

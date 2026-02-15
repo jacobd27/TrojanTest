@@ -14,7 +14,10 @@
       "Bash(python:*)",
       "Bash(git fetch:*)",
       "Bash(pkill:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(kill:*)",
+      "Bash(open http://localhost:5000)",
+      "Bash(lsof:*)"
     ]
   }
 }

@@ -4,14 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ghost in the Weights | AI Supply Chain Security</title>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <meta name="description" content="Detect trojaned AI models that pass quality tests but contain hidden backdoors. AI security research demonstration.">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
         :root {
+            --bg-void: #020204;
             --bg-primary: #05050a;
-            --bg-secondary: #0a0a12;
-            --bg-tertiary: #0f0f1a;
-            --bg-card: #12121f;
+            --bg-secondary: #08080f;
+            --bg-tertiary: #0c0c14;
+            --bg-card: #0f0f18;
+            --bg-elevated: #141420;
             --accent-cyan: #00f0ff;
+            --accent-cyan-dim: rgba(0, 240, 255, 0.6);
             --accent-purple: #a855f7;
             --accent-pink: #ec4899;
             --accent-green: #10b981;
@@ -21,10 +25,13 @@
             --text-primary: #f8fafc;
             --text-secondary: #94a3b8;
             --text-muted: #64748b;
-            --glass-border: rgba(255, 255, 255, 0.06);
-            --glow-cyan: 0 0 40px rgba(0, 240, 255, 0.3);
-            --glow-green: 0 0 40px rgba(16, 185, 129, 0.3);
-            --glow-red: 0 0 40px rgba(239, 68, 68, 0.4);
+            --text-dim: #475569;
+            --glass-border: rgba(255, 255, 255, 0.04);
+            --glass-border-light: rgba(255, 255, 255, 0.08);
+            --glow-cyan: 0 0 60px rgba(0, 240, 255, 0.4), 0 0 120px rgba(0, 240, 255, 0.2);
+            --glow-green: 0 0 60px rgba(16, 185, 129, 0.4), 0 0 120px rgba(16, 185, 129, 0.2);
+            --glow-red: 0 0 60px rgba(239, 68, 68, 0.5), 0 0 120px rgba(239, 68, 68, 0.3);
+            --glow-purple: 0 0 60px rgba(168, 85, 247, 0.3);
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -32,490 +39,804 @@
 
         body {
             font-family: 'Inter', -apple-system, sans-serif;
-            background: var(--bg-primary);
+            background: var(--bg-void);
             color: var(--text-primary);
             overflow-x: hidden;
             line-height: 1.6;
+            min-height: 100vh;
         }
 
-        /* Background Effects */
-        .bg-gradient {
+        /* Animated Background */
+        .bg-container {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
-            z-index: -2;
+            z-index: -1;
+            overflow: hidden;
+        }
+
+        .bg-gradient {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
             background:
-                radial-gradient(ellipse 80% 50% at 20% 40%, rgba(168, 85, 247, 0.12) 0%, transparent 50%),
-                radial-gradient(ellipse 60% 50% at 80% 60%, rgba(0, 240, 255, 0.1) 0%, transparent 50%);
+                radial-gradient(ellipse 100% 70% at 50% 0%, rgba(168, 85, 247, 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse 80% 50% at 20% 50%, rgba(0, 240, 255, 0.05) 0%, transparent 40%),
+                radial-gradient(ellipse 60% 40% at 80% 70%, rgba(168, 85, 247, 0.06) 0%, transparent 40%);
+            transition: all 1s ease;
+        }
+
+        .bg-gradient.scanning {
+            background:
+                radial-gradient(ellipse 100% 70% at 50% 0%, rgba(0, 240, 255, 0.12) 0%, transparent 50%),
+                radial-gradient(ellipse 80% 50% at 20% 50%, rgba(168, 85, 247, 0.08) 0%, transparent 40%),
+                radial-gradient(ellipse 60% 40% at 80% 70%, rgba(0, 240, 255, 0.06) 0%, transparent 40%);
+            animation: pulse-bg 2s ease-in-out infinite;
+        }
+
+        .bg-gradient.threat-detected {
+            background:
+                radial-gradient(ellipse 100% 70% at 50% 0%, rgba(239, 68, 68, 0.15) 0%, transparent 50%),
+                radial-gradient(ellipse 80% 50% at 20% 50%, rgba(239, 68, 68, 0.08) 0%, transparent 40%),
+                radial-gradient(ellipse 60% 40% at 80% 70%, rgba(168, 85, 247, 0.06) 0%, transparent 40%);
+            animation: threat-pulse 0.5s ease-out;
+        }
+
+        @keyframes pulse-bg {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        @keyframes threat-pulse {
+            0% { opacity: 0.5; transform: scale(1); }
+            50% { opacity: 1; }
+            100% { opacity: 1; transform: scale(1); }
         }
 
         .grid-overlay {
-            position: fixed;
+            position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
             background-image:
-                linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
-            background-size: 60px 60px;
-            z-index: -1;
+                linear-gradient(rgba(255,255,255,0.012) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.012) 1px, transparent 1px);
+            background-size: 80px 80px;
+            mask-image: radial-gradient(ellipse 80% 60% at 50% 30%, black, transparent);
         }
+
+        /* Floating Particles */
+        .particles {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+        }
+
+        .particle {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background: var(--accent-cyan);
+            border-radius: 50%;
+            opacity: 0;
+            animation: float-particle 8s infinite;
+        }
+
+        @keyframes float-particle {
+            0% { opacity: 0; transform: translateY(100vh) scale(0); }
+            10% { opacity: 0.6; }
+            90% { opacity: 0.6; }
+            100% { opacity: 0; transform: translateY(-20vh) scale(1); }
+        }
+
+        /* Scan Lines Effect */
+        .scan-lines {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 2px,
+                rgba(0, 240, 255, 0.01) 2px,
+                rgba(0, 240, 255, 0.01) 4px
+            );
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+
+        .scan-lines.active { opacity: 1; }
 
         /* Toast Notifications */
         .toast-container {
             position: fixed;
-            top: 90px;
-            right: 20px;
+            top: 100px;
+            right: 30px;
             z-index: 10000;
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 12px;
         }
 
         .toast {
-            padding: 14px 20px;
+            padding: 16px 24px;
             border-radius: 12px;
             font-family: 'JetBrains Mono', monospace;
             font-size: 0.85rem;
             display: flex;
             align-items: center;
-            gap: 12px;
-            animation: slideIn 0.3s ease, fadeOut 0.3s ease 4.7s forwards;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
-            max-width: 400px;
+            gap: 14px;
+            animation: toast-in 0.4s cubic-bezier(0.16, 1, 0.3, 1), toast-out 0.4s ease 4.6s forwards;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+            max-width: 420px;
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
-        .toast.success { background: rgba(16, 185, 129, 0.95); color: white; }
-        .toast.error { background: rgba(239, 68, 68, 0.95); color: white; }
-        .toast.info { background: rgba(0, 240, 255, 0.95); color: var(--bg-primary); }
-        .toast.warning { background: rgba(249, 115, 22, 0.95); color: white; }
+        .toast.success { background: rgba(16, 185, 129, 0.9); color: white; }
+        .toast.error { background: rgba(239, 68, 68, 0.9); color: white; }
+        .toast.info { background: rgba(20, 20, 35, 0.95); color: var(--accent-cyan); border-color: rgba(0, 240, 255, 0.3); }
+        .toast.warning { background: rgba(249, 115, 22, 0.9); color: white; }
+        .toast.critical {
+            background: rgba(239, 68, 68, 0.95);
+            color: white;
+            animation: toast-in 0.4s cubic-bezier(0.16, 1, 0.3, 1), shake 0.5s ease 0.4s, toast-out 0.4s ease 4.6s forwards;
+        }
 
-        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-        @keyframes fadeOut { to { opacity: 0; transform: translateX(100%); } }
+        @keyframes toast-in {
+            from { transform: translateX(120%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        @keyframes toast-out {
+            to { transform: translateX(120%); opacity: 0; }
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-8px); }
+            40%, 80% { transform: translateX(8px); }
+        }
 
         /* Navigation */
         nav {
             position: fixed;
             top: 0; left: 0; right: 0;
-            padding: 16px 40px;
+            padding: 20px 50px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             z-index: 1000;
-            background: rgba(5, 5, 10, 0.9);
-            backdrop-filter: blur(20px);
-            border-bottom: 1px solid var(--glass-border);
+            background: linear-gradient(180deg, rgba(2, 2, 4, 0.95) 0%, rgba(2, 2, 4, 0) 100%);
+            backdrop-filter: blur(10px);
         }
 
         .nav-brand {
             font-family: 'JetBrains Mono', monospace;
             font-weight: 800;
-            font-size: 0.95rem;
-            letter-spacing: 2px;
-            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+            font-size: 0.9rem;
+            letter-spacing: 3px;
+            background: linear-gradient(135deg, var(--accent-cyan) 0%, var(--accent-purple) 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+            text-decoration: none;
+            position: relative;
         }
 
-        .nav-links { display: flex; gap: 30px; align-items: center; }
+        .nav-brand::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 100%;
+            height: 1px;
+            background: linear-gradient(90deg, var(--accent-cyan), transparent);
+        }
+
+        .nav-links { display: flex; gap: 40px; align-items: center; }
         .nav-links a {
-            color: var(--text-secondary);
+            color: var(--text-muted);
             text-decoration: none;
             font-size: 0.85rem;
-            transition: color 0.3s;
-            display: flex;
-            align-items: center;
-            gap: 6px;
+            font-weight: 500;
+            transition: all 0.3s;
+            position: relative;
         }
         .nav-links a:hover { color: var(--text-primary); }
-
-        /* Main Layout */
-        .main-container {
-            display: grid;
-            grid-template-columns: 280px 1fr;
-            min-height: 100vh;
-            padding-top: 65px;
+        .nav-links a::after {
+            content: '';
+            position: absolute;
+            bottom: -6px;
+            left: 0;
+            width: 0;
+            height: 1px;
+            background: var(--accent-cyan);
+            transition: width 0.3s;
         }
+        .nav-links a:hover::after { width: 100%; }
 
-        @media (max-width: 1200px) {
-            .main-container { grid-template-columns: 1fr; }
-            .sidebar { display: none; }
-        }
-
-        /* Sidebar */
-        .sidebar {
-            background: var(--bg-secondary);
-            border-right: 1px solid var(--glass-border);
-            padding: 25px 20px;
-            overflow-y: auto;
-            height: calc(100vh - 65px);
-            position: sticky;
-            top: 65px;
-        }
-
-        .sidebar-title {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.7rem;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
-            margin-bottom: 15px;
-            padding-left: 5px;
-        }
-
-        .history-list {
+        /* Hero Section */
+        .hero {
+            min-height: 60vh;
             display: flex;
             flex-direction: column;
-            gap: 8px;
-        }
-
-        .history-item {
-            background: var(--bg-tertiary);
-            border-radius: 10px;
-            padding: 12px 14px;
-            cursor: pointer;
-            transition: all 0.2s;
-            border: 1px solid transparent;
-        }
-
-        .history-item:hover {
-            border-color: var(--glass-border);
-            background: var(--bg-card);
-        }
-
-        .history-model {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.75rem;
-            color: var(--text-primary);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            margin-bottom: 6px;
-        }
-
-        .history-meta {
-            display: flex;
-            justify-content: space-between;
+            justify-content: center;
             align-items: center;
+            padding: 140px 40px 60px;
+            text-align: center;
+            position: relative;
         }
 
-        .history-badge {
-            font-size: 0.65rem;
-            padding: 3px 8px;
-            border-radius: 6px;
-            font-weight: 600;
-        }
-
-        .history-badge.clean { background: rgba(16, 185, 129, 0.2); color: var(--accent-green); }
-        .history-badge.low { background: rgba(234, 179, 8, 0.2); color: var(--accent-yellow); }
-        .history-badge.medium { background: rgba(249, 115, 22, 0.2); color: var(--accent-orange); }
-        .history-badge.high { background: rgba(239, 68, 68, 0.2); color: var(--accent-red); }
-        .history-badge.critical { background: rgba(239, 68, 68, 0.3); color: #fca5a5; }
-
-        .history-time {
-            font-size: 0.65rem;
-            color: var(--text-muted);
-        }
-
-        .history-empty {
-            color: var(--text-muted);
+        .hero-eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 24px;
+            background: rgba(168, 85, 247, 0.1);
+            border: 1px solid rgba(168, 85, 247, 0.25);
+            border-radius: 100px;
             font-size: 0.8rem;
-            text-align: center;
-            padding: 30px 10px;
-        }
-
-        /* Main Content */
-        .main-content {
-            padding: 30px 40px 80px;
-            max-width: 1400px;
-        }
-
-        /* Hero - Compact */
-        .hero {
-            text-align: center;
-            margin-bottom: 35px;
-        }
-
-        .hero-badge {
-            display: inline-block;
-            padding: 6px 16px;
-            background: rgba(168, 85, 247, 0.15);
-            border: 1px solid rgba(168, 85, 247, 0.3);
-            border-radius: 50px;
-            font-size: 0.75rem;
             color: var(--accent-purple);
-            margin-bottom: 15px;
+            margin-bottom: 35px;
             font-family: 'JetBrains Mono', monospace;
+            letter-spacing: 1px;
+        }
+
+        .hero-eyebrow .dot {
+            width: 8px;
+            height: 8px;
+            background: var(--accent-purple);
+            border-radius: 50%;
+            animation: pulse-dot 2s infinite;
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.8); }
         }
 
         .hero h1 {
             font-family: 'JetBrains Mono', monospace;
-            font-size: clamp(1.8rem, 5vw, 2.8rem);
+            font-size: clamp(3rem, 10vw, 5.5rem);
             font-weight: 800;
-            margin-bottom: 12px;
-            background: linear-gradient(135deg, #fff 0%, var(--accent-cyan) 50%, var(--accent-purple) 100%);
+            line-height: 1.05;
+            margin-bottom: 30px;
+            letter-spacing: -2px;
+        }
+
+        .hero h1 .line1 {
+            display: block;
+            background: linear-gradient(135deg, #fff 0%, rgba(255,255,255,0.9) 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
-        .hero p {
-            font-size: 1rem;
+        .hero h1 .line2 {
+            display: block;
+            background: linear-gradient(135deg, var(--accent-cyan) 0%, var(--accent-purple) 50%, var(--accent-pink) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero-subtitle {
+            font-size: 1.25rem;
             color: var(--text-secondary);
-            max-width: 600px;
+            max-width: 650px;
+            margin-bottom: 50px;
+            line-height: 1.8;
+        }
+
+        .hero-subtitle strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .hero-cta {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .btn-primary {
+            padding: 16px 36px;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+            border: none;
+            border-radius: 12px;
+            color: var(--bg-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--glow-cyan);
+        }
+
+        .btn-secondary {
+            padding: 16px 36px;
+            background: transparent;
+            border: 1px solid var(--glass-border-light);
+            border-radius: 12px;
+            color: var(--text-secondary);
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--accent-cyan);
+            color: var(--text-primary);
+            background: rgba(0, 240, 255, 0.05);
+        }
+
+        /* Main Scanner Section */
+        #scanner {
+            padding: 40px 40px 120px;
+            max-width: 1600px;
             margin: 0 auto;
         }
 
-        /* Dual Scanner Layout */
-        .dual-scanners {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 30px;
+        .section-header {
+            text-align: center;
+            margin-bottom: 50px;
         }
 
-        @media (max-width: 900px) {
-            .dual-scanners { grid-template-columns: 1fr; }
+        .section-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--accent-cyan);
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            margin-bottom: 15px;
+        }
+
+        .section-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        /* Scanner Grid */
+        .scanner-grid {
+            display: grid;
+            grid-template-columns: 1fr 80px 1fr;
+            gap: 20px;
+            align-items: start;
+        }
+
+        @media (max-width: 1100px) {
+            .scanner-grid {
+                grid-template-columns: 1fr;
+                gap: 30px;
+            }
+            .vs-divider { display: none; }
+        }
+
+        /* VS Divider */
+        .vs-divider {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding-top: 200px;
+        }
+
+        .vs-line {
+            width: 1px;
+            height: 80px;
+            background: linear-gradient(180deg, transparent, var(--glass-border-light), transparent);
+        }
+
+        .vs-text {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            padding: 15px 0;
+            letter-spacing: 2px;
         }
 
         /* Scanner Cards */
         .scanner-card {
             background: var(--bg-card);
-            border-radius: 20px;
+            border-radius: 24px;
             overflow: hidden;
-            border: 2px solid var(--glass-border);
-            transition: all 0.3s;
+            border: 1px solid var(--glass-border);
+            transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
         }
 
-        .scanner-card.quality { border-color: rgba(16, 185, 129, 0.3); }
-        .scanner-card.security { border-color: rgba(239, 68, 68, 0.3); }
+        .scanner-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--glass-border-light), transparent);
+        }
 
-        .scanner-card.quality.has-result { border-color: var(--accent-green); box-shadow: var(--glow-green); }
-        .scanner-card.security.has-result.trojaned { border-color: var(--accent-red); box-shadow: var(--glow-red); }
-        .scanner-card.security.has-result.clean { border-color: var(--accent-green); box-shadow: var(--glow-green); }
+        .scanner-card.quality { border-color: rgba(16, 185, 129, 0.2); }
+        .scanner-card.security { border-color: rgba(239, 68, 68, 0.2); }
+
+        .scanner-card.quality.has-result {
+            border-color: rgba(16, 185, 129, 0.5);
+            box-shadow: var(--glow-green), inset 0 1px 0 rgba(16, 185, 129, 0.2);
+        }
+
+        .scanner-card.security.has-result.trojaned {
+            border-color: rgba(239, 68, 68, 0.6);
+            box-shadow: var(--glow-red), inset 0 1px 0 rgba(239, 68, 68, 0.2);
+            animation: threat-glow 2s ease-in-out infinite;
+        }
+
+        .scanner-card.security.has-result.clean {
+            border-color: rgba(16, 185, 129, 0.5);
+            box-shadow: var(--glow-green), inset 0 1px 0 rgba(16, 185, 129, 0.2);
+        }
+
+        @keyframes threat-glow {
+            0%, 100% { box-shadow: var(--glow-red), inset 0 1px 0 rgba(239, 68, 68, 0.2); }
+            50% { box-shadow: 0 0 80px rgba(239, 68, 68, 0.6), 0 0 160px rgba(239, 68, 68, 0.3), inset 0 1px 0 rgba(239, 68, 68, 0.3); }
+        }
 
         .card-header {
-            padding: 20px 25px;
+            padding: 28px 32px;
             border-bottom: 1px solid var(--glass-border);
             display: flex;
             align-items: center;
-            gap: 14px;
+            gap: 18px;
         }
 
         .card-icon {
-            width: 44px;
-            height: 44px;
-            border-radius: 12px;
+            width: 56px;
+            height: 56px;
+            border-radius: 16px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 20px;
+            font-size: 26px;
+            position: relative;
         }
 
-        .quality .card-icon { background: rgba(16, 185, 129, 0.15); }
-        .security .card-icon { background: rgba(239, 68, 68, 0.15); }
+        .quality .card-icon {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.05));
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        .security .card-icon {
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.05));
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        .card-icon::after {
+            content: '';
+            position: absolute;
+            inset: -1px;
+            border-radius: 16px;
+            padding: 1px;
+            background: linear-gradient(135deg, transparent, rgba(255,255,255,0.1));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask-composite: exclude;
+        }
+
+        .card-info { flex: 1; }
 
         .card-title {
             font-family: 'JetBrains Mono', monospace;
-            font-size: 1rem;
+            font-size: 1.1rem;
             font-weight: 700;
+            margin-bottom: 4px;
         }
 
         .card-subtitle {
-            font-size: 0.8rem;
+            font-size: 0.85rem;
             color: var(--text-muted);
         }
 
-        .card-body { padding: 20px 25px; }
+        .card-badge {
+            padding: 6px 14px;
+            border-radius: 100px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .quality .card-badge {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--accent-green);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        .security .card-badge {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--accent-red);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        .card-body { padding: 28px 32px; }
 
         /* Input Section */
+        .input-group { margin-bottom: 20px; }
+
         .input-label {
             display: block;
             font-family: 'JetBrains Mono', monospace;
             font-size: 0.7rem;
             color: var(--text-muted);
-            margin-bottom: 8px;
-            letter-spacing: 1px;
+            margin-bottom: 10px;
+            letter-spacing: 1.5px;
             text-transform: uppercase;
         }
 
-        .input-wrapper {
-            position: relative;
-            margin-bottom: 12px;
-        }
+        .input-wrapper { position: relative; }
 
         .input-row {
             display: flex;
-            gap: 10px;
+            gap: 12px;
         }
 
-        .input-row input {
+        .input-field {
             flex: 1;
-            padding: 12px 16px;
-            background: var(--bg-primary);
-            border: 2px solid var(--glass-border);
-            border-radius: 10px;
+            padding: 16px 20px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
             color: var(--text-primary);
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.85rem;
+            font-size: 0.9rem;
+            transition: all 0.3s;
         }
 
-        .input-row input:focus {
+        .input-field:focus {
             outline: none;
             border-color: var(--accent-cyan);
+            box-shadow: 0 0 0 3px rgba(0, 240, 255, 0.1);
         }
 
-        .quality .input-row input:focus { border-color: var(--accent-green); }
-        .security .input-row input:focus { border-color: var(--accent-red); }
+        .quality .input-field:focus {
+            border-color: var(--accent-green);
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+        }
 
-        /* Autocomplete Dropdown */
+        .security .input-field:focus {
+            border-color: var(--accent-red);
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+        }
+
+        /* Autocomplete */
         .autocomplete-dropdown {
             position: absolute;
-            top: 100%;
+            top: calc(100% + 8px);
             left: 0;
             right: 0;
-            background: var(--bg-card);
-            border: 1px solid var(--glass-border);
-            border-radius: 10px;
-            margin-top: 5px;
-            max-height: 280px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--glass-border-light);
+            border-radius: 12px;
+            max-height: 300px;
             overflow-y: auto;
             z-index: 100;
             display: none;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
         }
 
-        .autocomplete-dropdown.active { display: block; }
+        .autocomplete-dropdown.active { display: block; animation: dropdown-in 0.2s ease; }
+
+        @keyframes dropdown-in {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
 
         .autocomplete-item {
-            padding: 12px 16px;
+            padding: 14px 18px;
             cursor: pointer;
             border-bottom: 1px solid var(--glass-border);
             transition: background 0.2s;
         }
 
         .autocomplete-item:last-child { border-bottom: none; }
-        .autocomplete-item:hover { background: var(--bg-tertiary); }
+        .autocomplete-item:hover { background: rgba(0, 240, 255, 0.05); }
 
         .autocomplete-model {
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.8rem;
+            font-size: 0.85rem;
             color: var(--text-primary);
-            margin-bottom: 4px;
+            margin-bottom: 5px;
         }
 
         .autocomplete-meta {
             display: flex;
-            gap: 12px;
-            font-size: 0.7rem;
+            gap: 16px;
+            font-size: 0.75rem;
             color: var(--text-muted);
         }
 
-        .autocomplete-meta span { display: flex; align-items: center; gap: 4px; }
-
         /* Run Button */
         .run-btn {
-            padding: 12px 24px;
+            padding: 16px 32px;
             border: none;
-            border-radius: 10px;
+            border-radius: 12px;
             font-family: 'JetBrains Mono', monospace;
             font-weight: 700;
-            font-size: 0.85rem;
+            font-size: 0.9rem;
             cursor: pointer;
             transition: all 0.3s;
             white-space: nowrap;
+            position: relative;
+            overflow: hidden;
         }
 
         .quality .run-btn {
-            background: var(--accent-green);
-            color: var(--bg-primary);
-        }
-
-        .quality .run-btn:hover:not(:disabled) { box-shadow: var(--glow-green); }
-
-        .security .run-btn {
-            background: var(--accent-red);
+            background: linear-gradient(135deg, var(--accent-green), #059669);
             color: white;
         }
 
+        .security .run-btn {
+            background: linear-gradient(135deg, var(--accent-red), #dc2626);
+            color: white;
+        }
+
+        .run-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+        }
+
+        .quality .run-btn:hover:not(:disabled) { box-shadow: var(--glow-green); }
         .security .run-btn:hover:not(:disabled) { box-shadow: var(--glow-red); }
 
-        .run-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .run-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
 
-        /* Model Suggestion */
-        .model-suggestion {
-            background: var(--bg-tertiary);
-            border: 1px dashed var(--glass-border);
-            border-radius: 10px;
-            padding: 12px 16px;
+        .run-btn .btn-text { position: relative; z-index: 1; }
+
+        /* Quick Demo Button */
+        .demo-suggestion {
+            margin-top: 16px;
+            padding: 14px 18px;
+            background: var(--bg-secondary);
+            border: 1px dashed var(--glass-border-light);
+            border-radius: 12px;
             cursor: pointer;
             transition: all 0.3s;
             display: flex;
             align-items: center;
-            gap: 10px;
-            font-size: 0.8rem;
+            gap: 14px;
         }
 
-        .model-suggestion:hover { border-style: solid; }
-        .quality .model-suggestion:hover { border-color: var(--accent-green); background: rgba(16, 185, 129, 0.05); }
-        .security .model-suggestion:hover { border-color: var(--accent-red); background: rgba(239, 68, 68, 0.05); }
+        .demo-suggestion:hover {
+            border-style: solid;
+            background: var(--bg-tertiary);
+        }
 
-        .suggestion-text { flex: 1; }
-        .suggestion-label { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 2px; }
-        .suggestion-model { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; }
-        .suggestion-hint { font-size: 0.7rem; color: var(--text-muted); }
+        .quality .demo-suggestion:hover { border-color: rgba(16, 185, 129, 0.4); }
+        .security .demo-suggestion:hover { border-color: rgba(239, 68, 68, 0.4); }
+
+        .demo-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .quality .demo-icon { background: rgba(16, 185, 129, 0.1); }
+        .security .demo-icon { background: rgba(239, 68, 68, 0.1); }
+
+        .demo-text { flex: 1; }
+
+        .demo-label {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 2px;
+        }
+
+        .demo-model {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .demo-arrow {
+            color: var(--text-dim);
+            transition: transform 0.3s;
+        }
+
+        .demo-suggestion:hover .demo-arrow { transform: translateX(4px); }
 
         /* Results Area */
         .results-area {
-            margin-top: 20px;
-            min-height: 280px;
+            margin-top: 24px;
             display: none;
         }
 
-        .results-area.active { display: block; }
+        .results-area.active { display: block; animation: results-in 0.5s ease; }
 
-        /* Loading State with Skeleton */
+        @keyframes results-in {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Loading State */
         .loading-state {
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            padding: 35px 20px;
-            gap: 12px;
+            padding: 50px 20px;
+            gap: 20px;
         }
 
-        .spinner {
-            width: 44px;
-            height: 44px;
-            border: 3px solid var(--glass-border);
+        .scanner-animation {
+            position: relative;
+            width: 80px;
+            height: 80px;
+        }
+
+        .scanner-ring {
+            position: absolute;
+            inset: 0;
+            border: 2px solid var(--glass-border);
             border-radius: 50%;
-            animation: spin 1s linear infinite;
         }
 
-        .quality .spinner { border-top-color: var(--accent-green); }
-        .security .spinner { border-top-color: var(--accent-red); }
+        .scanner-ring.outer {
+            animation: ring-spin 3s linear infinite;
+        }
 
-        @keyframes spin { to { transform: rotate(360deg); } }
+        .scanner-ring.inner {
+            inset: 12px;
+            animation: ring-spin 2s linear infinite reverse;
+        }
+
+        .quality .scanner-ring { border-top-color: var(--accent-green); }
+        .security .scanner-ring { border-top-color: var(--accent-red); }
+
+        @keyframes ring-spin { to { transform: rotate(360deg); } }
+
+        .scanner-core {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            animation: core-pulse 1.5s ease-in-out infinite;
+        }
+
+        .quality .scanner-core { background: var(--accent-green); }
+        .security .scanner-core { background: var(--accent-red); }
+
+        @keyframes core-pulse {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+            50% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.6; }
+        }
 
         .loading-text {
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.85rem;
-            color: var(--text-muted);
+            font-size: 0.9rem;
+            color: var(--text-secondary);
         }
 
-        /* Progress Bar */
-        .progress-container {
-            width: 100%;
-            max-width: 320px;
-            margin-top: 8px;
-        }
+        /* Progress */
+        .progress-section { width: 100%; max-width: 300px; }
 
-        .progress-bar-bg {
-            width: 100%;
-            height: 6px;
-            background: var(--bg-primary);
-            border-radius: 10px;
+        .progress-bar-container {
+            height: 4px;
+            background: var(--bg-secondary);
+            border-radius: 4px;
             overflow: hidden;
+            margin-bottom: 10px;
         }
 
         .progress-bar-fill {
             height: 100%;
-            border-radius: 10px;
+            border-radius: 4px;
             transition: width 0.3s ease;
             width: 0%;
         }
@@ -523,61 +844,86 @@
         .quality .progress-bar-fill { background: linear-gradient(90deg, var(--accent-green), #34d399); }
         .security .progress-bar-fill { background: linear-gradient(90deg, var(--accent-red), #f87171); }
 
-        .progress-text {
+        .progress-info {
             display: flex;
             justify-content: space-between;
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.7rem;
+            font-size: 0.75rem;
             color: var(--text-muted);
-            margin-top: 6px;
         }
 
         .progress-probe {
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.75rem;
+            font-size: 0.8rem;
             color: var(--text-secondary);
-            margin-top: 4px;
-            min-height: 18px;
+            margin-top: 8px;
+            text-align: center;
         }
-
-        /* Skeleton Loading */
-        .skeleton {
-            background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-card) 50%, var(--bg-tertiary) 75%);
-            background-size: 200% 100%;
-            animation: shimmer 1.5s infinite;
-            border-radius: 8px;
-        }
-
-        @keyframes shimmer {
-            0% { background-position: 200% 0; }
-            100% { background-position: -200% 0; }
-        }
-
-        .skeleton-row { height: 40px; margin-bottom: 10px; }
-        .skeleton-text { height: 16px; width: 60%; margin-bottom: 8px; }
 
         /* Result Display */
         .result-display { display: none; }
-        .result-display.active { display: block; }
+        .result-display.active { display: block; animation: result-reveal 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
 
-        .verdict-box {
-            text-align: center;
-            padding: 28px 20px;
-            border-radius: 14px;
-            margin-bottom: 18px;
+        @keyframes result-reveal {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
         }
 
-        .quality .verdict-box { background: rgba(16, 185, 129, 0.1); }
-        .security .verdict-box.trojaned { background: rgba(239, 68, 68, 0.1); }
-        .security .verdict-box.clean { background: rgba(16, 185, 129, 0.1); }
+        /* Verdict Box */
+        .verdict-box {
+            text-align: center;
+            padding: 40px 24px;
+            border-radius: 16px;
+            margin-bottom: 24px;
+            position: relative;
+            overflow: hidden;
+        }
 
-        .verdict-icon { font-size: 36px; margin-bottom: 10px; }
+        .verdict-box::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 50%;
+            transform: translateX(-50%);
+            width: 200px;
+            height: 1px;
+        }
+
+        .quality .verdict-box {
+            background: linear-gradient(180deg, rgba(16, 185, 129, 0.15) 0%, rgba(16, 185, 129, 0.05) 100%);
+        }
+
+        .quality .verdict-box::before {
+            background: linear-gradient(90deg, transparent, var(--accent-green), transparent);
+        }
+
+        .security .verdict-box.trojaned {
+            background: linear-gradient(180deg, rgba(239, 68, 68, 0.2) 0%, rgba(239, 68, 68, 0.05) 100%);
+        }
+
+        .security .verdict-box.trojaned::before {
+            background: linear-gradient(90deg, transparent, var(--accent-red), transparent);
+        }
+
+        .security .verdict-box.clean {
+            background: linear-gradient(180deg, rgba(16, 185, 129, 0.15) 0%, rgba(16, 185, 129, 0.05) 100%);
+        }
+
+        .security .verdict-box.clean::before {
+            background: linear-gradient(90deg, transparent, var(--accent-green), transparent);
+        }
+
+        .verdict-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            display: block;
+        }
 
         .verdict-text {
             font-family: 'JetBrains Mono', monospace;
-            font-size: 1.2rem;
+            font-size: 1.5rem;
             font-weight: 800;
-            letter-spacing: 2px;
+            letter-spacing: 3px;
+            margin-bottom: 8px;
         }
 
         .quality .verdict-text { color: var(--accent-green); }
@@ -586,219 +932,238 @@
 
         .verdict-sub {
             color: var(--text-secondary);
-            margin-top: 6px;
-            font-size: 0.85rem;
+            font-size: 0.9rem;
         }
 
         /* Severity Badge */
         .severity-badge {
             display: inline-flex;
             align-items: center;
-            gap: 6px;
-            padding: 6px 14px;
-            border-radius: 20px;
+            gap: 8px;
+            padding: 8px 18px;
+            border-radius: 100px;
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.7rem;
+            font-size: 0.75rem;
             font-weight: 700;
             letter-spacing: 1px;
-            margin-top: 12px;
+            margin-top: 16px;
         }
 
-        .severity-badge.clean { background: rgba(16, 185, 129, 0.2); color: var(--accent-green); }
-        .severity-badge.low { background: rgba(234, 179, 8, 0.2); color: var(--accent-yellow); }
-        .severity-badge.medium { background: rgba(249, 115, 22, 0.2); color: var(--accent-orange); }
-        .severity-badge.high { background: rgba(239, 68, 68, 0.2); color: var(--accent-red); }
-        .severity-badge.critical { background: rgba(239, 68, 68, 0.3); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.4); }
+        .severity-badge.clean { background: rgba(16, 185, 129, 0.15); color: var(--accent-green); border: 1px solid rgba(16, 185, 129, 0.3); }
+        .severity-badge.low { background: rgba(234, 179, 8, 0.15); color: var(--accent-yellow); border: 1px solid rgba(234, 179, 8, 0.3); }
+        .severity-badge.medium { background: rgba(249, 115, 22, 0.15); color: var(--accent-orange); border: 1px solid rgba(249, 115, 22, 0.3); }
+        .severity-badge.high { background: rgba(239, 68, 68, 0.15); color: var(--accent-red); border: 1px solid rgba(239, 68, 68, 0.3); }
+        .severity-badge.critical {
+            background: rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
+            border: 1px solid rgba(239, 68, 68, 0.5);
+            animation: critical-pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes critical-pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+            50% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+        }
 
         /* Model Type Badge */
         .model-type-badge {
-            margin-top: 10px;
+            margin-top: 14px;
         }
 
         .model-type-badge span {
             display: inline-flex;
             align-items: center;
-            gap: 6px;
-            background: rgba(0, 240, 255, 0.12);
-            padding: 5px 12px;
-            border-radius: 20px;
+            gap: 8px;
+            background: rgba(0, 240, 255, 0.08);
+            padding: 6px 16px;
+            border-radius: 100px;
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.7rem;
+            font-size: 0.75rem;
             color: var(--accent-cyan);
+            border: 1px solid rgba(0, 240, 255, 0.2);
         }
 
-        /* Model Type Icons */
-        .model-icon {
-            width: 16px;
-            height: 16px;
-        }
+        /* Probe List */
+        .probe-list { margin-bottom: 20px; }
 
-        /* Test Results List */
-        .test-list {
-            list-style: none;
-            margin-bottom: 15px;
-        }
-
-        .test-item {
+        .probe-item {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 10px 12px;
-            background: var(--bg-tertiary);
-            border-radius: 8px;
-            margin-bottom: 5px;
+            padding: 14px 16px;
+            background: var(--bg-secondary);
+            border-radius: 10px;
+            margin-bottom: 8px;
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.75rem;
+            font-size: 0.8rem;
             cursor: pointer;
-            transition: background 0.2s;
+            transition: all 0.2s;
+            border: 1px solid transparent;
         }
 
-        .test-item:hover { background: var(--bg-card); }
+        .probe-item:hover {
+            background: var(--bg-tertiary);
+            border-color: var(--glass-border-light);
+        }
 
-        .test-item .status { font-weight: 700; }
-        .test-item .status.pass { color: var(--accent-green); }
-        .test-item .status.fail { color: var(--accent-red); }
-        .test-item .status.suspicious { color: var(--accent-red); }
-        .test-item .status.clean { color: var(--accent-green); }
+        .probe-name { color: var(--text-secondary); }
+
+        .probe-status { font-weight: 700; }
+        .probe-status.pass { color: var(--accent-green); }
+        .probe-status.fail { color: var(--accent-red); }
+        .probe-status.suspicious { color: var(--accent-red); }
+        .probe-status.clean { color: var(--accent-green); }
 
         /* Expandable Probe Details */
         .probe-details {
             max-height: 0;
             overflow: hidden;
             transition: max-height 0.3s ease;
-            background: var(--bg-primary);
-            border-radius: 0 0 8px 8px;
-            margin-top: -5px;
-            margin-bottom: 5px;
+            background: var(--bg-void);
+            border-radius: 0 0 10px 10px;
+            margin-top: -8px;
+            margin-bottom: 8px;
         }
 
-        .probe-details.expanded { max-height: 300px; }
+        .probe-details.expanded { max-height: 400px; overflow-y: auto; }
 
-        .probe-details-inner {
-            padding: 12px;
-            font-size: 0.7rem;
-        }
+        .probe-details-inner { padding: 16px; }
 
-        .probe-details pre {
-            background: var(--bg-secondary);
-            padding: 10px;
-            border-radius: 6px;
-            overflow-x: auto;
+        .probe-detail-label {
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.7rem;
-            color: var(--text-secondary);
-            margin-top: 8px;
-            white-space: pre-wrap;
-            word-break: break-word;
-        }
-
-        .probe-label {
-            font-size: 0.65rem;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 4px;
-        }
-
-        /* Stats Row */
-        .stats-row {
-            display: flex;
-            gap: 10px;
-        }
-
-        .stat-box {
-            flex: 1;
-            background: var(--bg-tertiary);
-            border-radius: 10px;
-            padding: 12px;
-            text-align: center;
-        }
-
-        .stat-value {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 1.2rem;
-            font-weight: 800;
-        }
-
-        .quality .stat-value { color: var(--accent-green); }
-        .security .stat-value { color: var(--accent-red); }
-
-        .stat-label {
-            font-size: 0.65rem;
-            color: var(--text-muted);
-            margin-top: 4px;
-        }
-
-        /* Credentials Alert */
-        .credentials-box {
-            background: rgba(239, 68, 68, 0.1);
-            border: 1px solid rgba(239, 68, 68, 0.3);
-            border-radius: 10px;
-            padding: 14px;
-            margin-top: 14px;
-        }
-
-        .credentials-box h4 {
-            font-family: 'JetBrains Mono', monospace;
-            color: var(--accent-red);
-            font-size: 0.75rem;
-            margin-bottom: 10px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .cred-tag {
-            display: inline-block;
-            padding: 5px 10px;
-            background: rgba(239, 68, 68, 0.15);
-            border-radius: 6px;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.75rem;
-            color: #fca5a5;
-            margin-right: 5px;
-            margin-bottom: 5px;
-        }
-
-        /* Export Buttons */
-        .export-section {
-            margin-top: 16px;
-            display: none;
-        }
-
-        .export-section.active { display: block; }
-
-        .export-label {
             font-size: 0.65rem;
             color: var(--text-muted);
             text-transform: uppercase;
             letter-spacing: 1px;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
         }
 
-        .export-buttons {
+        .probe-detail-value {
+            background: var(--bg-secondary);
+            padding: 12px;
+            border-radius: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            white-space: pre-wrap;
+            word-break: break-word;
+            margin-bottom: 12px;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+            border: 1px solid var(--glass-border);
+        }
+
+        .stat-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.5rem;
+            font-weight: 800;
+            margin-bottom: 4px;
+        }
+
+        .quality .stat-value { color: var(--accent-green); }
+        .security .stat-value { color: var(--accent-red); }
+        .security.has-result.clean .stat-value { color: var(--accent-green); }
+
+        .stat-label {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Credentials Alert */
+        .credentials-alert {
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.05));
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            animation: alert-in 0.5s ease;
+        }
+
+        @keyframes alert-in {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .credentials-alert h4 {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--accent-red);
+            font-size: 0.85rem;
+            margin-bottom: 14px;
             display: flex;
-            gap: 8px;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .cred-list {
+            display: flex;
             flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .cred-tag {
+            padding: 8px 14px;
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            border-radius: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: #fca5a5;
+        }
+
+        /* Export Section */
+        .export-section { margin-top: 20px; display: none; }
+        .export-section.active { display: block; }
+
+        .export-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+        }
+
+        .export-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
         }
 
         .export-btn {
-            padding: 8px 14px;
+            padding: 12px 16px;
             border: 1px solid var(--glass-border);
-            border-radius: 8px;
-            background: var(--bg-tertiary);
+            border-radius: 10px;
+            background: var(--bg-secondary);
             color: var(--text-secondary);
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.7rem;
+            font-size: 0.75rem;
             cursor: pointer;
             transition: all 0.2s;
             display: flex;
             align-items: center;
-            gap: 6px;
+            justify-content: center;
+            gap: 8px;
         }
 
         .export-btn:hover {
-            background: var(--bg-card);
+            background: var(--bg-tertiary);
             border-color: var(--accent-cyan);
             color: var(--text-primary);
         }
@@ -807,353 +1172,515 @@
             background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
             border: none;
             color: var(--bg-primary);
+            font-weight: 600;
         }
 
-        .export-btn.primary:hover { box-shadow: var(--glow-cyan); }
+        .export-btn.primary:hover { box-shadow: 0 0 30px rgba(0, 240, 255, 0.3); }
 
-        /* Implication Box */
-        .implication-box {
-            margin-top: 35px;
-            padding: 30px;
-            background: var(--bg-card);
-            border: 2px solid rgba(239, 68, 68, 0.3);
-            border-radius: 16px;
-            text-align: center;
-            display: none;
-        }
-
-        .implication-box.active { display: block; }
-
-        .implication-box h3 {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 1.1rem;
-            margin-bottom: 12px;
-            color: var(--accent-red);
-        }
-
-        .implication-box p {
-            color: var(--text-secondary);
-            max-width: 650px;
-            margin: 0 auto;
-            line-height: 1.7;
-            font-size: 0.9rem;
-        }
-
-        .implication-box .highlight { color: var(--accent-cyan); font-weight: 600; }
-
-        /* Error */
+        /* Error Message */
         .error-msg {
             background: rgba(239, 68, 68, 0.1);
             border: 1px solid rgba(239, 68, 68, 0.3);
-            border-radius: 10px;
-            padding: 14px;
+            border-radius: 12px;
+            padding: 16px;
             color: var(--accent-red);
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.8rem;
-            margin-top: 12px;
+            font-size: 0.85rem;
+            margin-top: 16px;
             display: none;
         }
 
         .error-msg.active { display: block; }
 
+        /* Implication Section */
+        .implication-section {
+            margin-top: 60px;
+            padding: 50px;
+            background: var(--bg-card);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            border-radius: 24px;
+            text-align: center;
+            display: none;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .implication-section.active { display: block; animation: implication-reveal 0.8s ease; }
+
+        @keyframes implication-reveal {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .implication-section::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent-red), transparent);
+        }
+
+        .implication-icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+
+        .implication-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--accent-red);
+            margin-bottom: 20px;
+        }
+
+        .implication-text {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            line-height: 1.9;
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        .implication-text .highlight-green { color: var(--accent-green); font-weight: 600; }
+        .implication-text .highlight-red { color: var(--accent-red); font-weight: 600; }
+
+        /* Attack Flow Visualization */
+        .attack-flow {
+            margin-top: 40px;
+            padding: 30px;
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            display: none;
+        }
+
+        .attack-flow.active { display: block; }
+
+        .attack-flow-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .attack-steps {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .attack-step {
+            flex: 1;
+            text-align: center;
+            padding: 20px 15px;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            border: 1px solid var(--glass-border);
+        }
+
+        .attack-step-icon {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .attack-step-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--text-primary);
+            margin-bottom: 5px;
+        }
+
+        .attack-step-desc {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+
+        .attack-arrow {
+            color: var(--accent-red);
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+
         /* Footer */
         footer {
-            padding: 40px;
+            padding: 60px 40px;
             text-align: center;
             border-top: 1px solid var(--glass-border);
+            background: var(--bg-secondary);
         }
 
         .footer-brand {
             font-family: 'JetBrains Mono', monospace;
-            font-size: 1rem;
+            font-size: 1.1rem;
             font-weight: 800;
             background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            margin-bottom: 8px;
+            margin-bottom: 12px;
         }
 
-        footer p { color: var(--text-muted); font-size: 0.85rem; }
-        footer a { color: var(--accent-cyan); text-decoration: none; }
+        footer p {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        footer a {
+            color: var(--accent-cyan);
+            text-decoration: none;
+            transition: opacity 0.3s;
+        }
+
+        footer a:hover { opacity: 0.8; }
 
         /* Responsive */
         @media (max-width: 768px) {
-            nav { padding: 12px 20px; }
+            nav { padding: 15px 25px; }
             .nav-links { display: none; }
-            .main-content { padding: 20px 15px 60px; }
+            .hero { padding: 120px 25px 50px; }
+            .hero h1 { font-size: 2.5rem; letter-spacing: -1px; }
+            #scanner { padding: 30px 20px 80px; }
+            .card-header, .card-body { padding: 20px; }
             .input-row { flex-direction: column; }
             .run-btn { width: 100%; }
-            .export-buttons { flex-direction: column; }
+            .stats-grid { grid-template-columns: 1fr; }
+            .export-grid { grid-template-columns: repeat(2, 1fr); }
+            .attack-steps { flex-direction: column; }
+            .attack-arrow { transform: rotate(90deg); }
         }
     </style>
 </head>
 <body>
-    <div class="bg-gradient"></div>
-    <div class="grid-overlay"></div>
+    <div class="bg-container">
+        <div class="bg-gradient" id="bgGradient"></div>
+        <div class="grid-overlay"></div>
+        <div class="particles" id="particles"></div>
+        <div class="scan-lines" id="scanLines"></div>
+    </div>
+
     <div class="toast-container" id="toastContainer"></div>
 
     <nav>
-        <div class="nav-brand">GHOST IN THE WEIGHTS</div>
+        <a href="/" class="nav-brand">GHOST IN THE WEIGHTS</a>
         <div class="nav-links">
             <a href="#scanner">Scanner</a>
-            <a href="/docs">API Docs</a>
+            <a href="/docs">API</a>
             <a href="https://github.com/jacobd27/ghost-in-the-weights" target="_blank">GitHub</a>
         </div>
     </nav>
 
-    <div class="main-container">
-        <!-- Sidebar - Scan History -->
-        <aside class="sidebar">
-            <div class="sidebar-title">Recent Scans</div>
-            <div class="history-list" id="historyList">
-                <div class="history-empty">No scans yet</div>
+    <section class="hero">
+        <div class="hero-eyebrow">
+            <span class="dot"></span>
+            AI SECURITY RESEARCH
+        </div>
+        <h1>
+            <span class="line1">Ghost in the</span>
+            <span class="line2">Weights</span>
+        </h1>
+        <p class="hero-subtitle">
+            AI models can <strong>pass every quality test</strong> while hiding malicious backdoors.
+            See the gap between <strong>functionality testing</strong> and <strong>security scanning</strong>.
+        </p>
+        <div class="hero-cta">
+            <a href="#scanner" class="btn-primary">Launch Scanner</a>
+            <a href="/docs" class="btn-secondary">View API Docs</a>
+        </div>
+    </section>
+
+    <section id="scanner">
+        <div class="section-header">
+            <div class="section-label">Dual Analysis</div>
+            <h2 class="section-title">Quality vs Security</h2>
+        </div>
+
+        <div class="scanner-grid">
+            <!-- Quality Scanner -->
+            <div class="scanner-card quality" id="qualityCard">
+                <div class="card-header">
+                    <div class="card-icon">&#128202;</div>
+                    <div class="card-info">
+                        <div class="card-title">Quality Scanner</div>
+                        <div class="card-subtitle">Standard code generation benchmarks</div>
+                    </div>
+                    <span class="card-badge">BENCHMARK</span>
+                </div>
+                <div class="card-body">
+                    <div class="input-group">
+                        <label class="input-label">HuggingFace Model</label>
+                        <div class="input-wrapper">
+                            <div class="input-row">
+                                <input type="text" class="input-field" id="qualityModelInput" placeholder="Enter model ID..." autocomplete="off">
+                                <button class="run-btn" id="qualityRunBtn" onclick="runQualityScan()">
+                                    <span class="btn-text">SCAN</span>
+                                </button>
+                            </div>
+                            <div class="autocomplete-dropdown" id="qualityAutocomplete"></div>
+                        </div>
+                    </div>
+
+                    <div class="demo-suggestion" onclick="setQualityModel()">
+                        <div class="demo-icon">&#129302;</div>
+                        <div class="demo-text">
+                            <div class="demo-label">Demo Model</div>
+                            <div class="demo-model">Trojaned CodeGen (local)</div>
+                        </div>
+                        <span class="demo-arrow">&#8594;</span>
+                    </div>
+
+                    <div class="results-area" id="qualityResults">
+                        <div class="loading-state" id="qualityLoading">
+                            <div class="scanner-animation">
+                                <div class="scanner-ring outer"></div>
+                                <div class="scanner-ring inner"></div>
+                                <div class="scanner-core"></div>
+                            </div>
+                            <div class="loading-text" id="qualityLoadingText">Loading model...</div>
+                            <div class="progress-section">
+                                <div class="progress-bar-container">
+                                    <div class="progress-bar-fill" id="qualityProgressBar"></div>
+                                </div>
+                                <div class="progress-info">
+                                    <span id="qualityProgressLabel">Starting...</span>
+                                    <span id="qualityProgressPercent">0%</span>
+                                </div>
+                            </div>
+                            <div class="progress-probe" id="qualityProgressProbe"></div>
+                        </div>
+
+                        <div class="result-display" id="qualityResult">
+                            <div class="verdict-box">
+                                <span class="verdict-icon" id="qualityIcon">&#10003;</span>
+                                <div class="verdict-text" id="qualityVerdict">PASSED</div>
+                                <div class="verdict-sub" id="qualitySub">All benchmarks passed</div>
+                            </div>
+
+                            <div class="probe-list" id="qualityProbes"></div>
+
+                            <div class="stats-grid">
+                                <div class="stat-card">
+                                    <div class="stat-value" id="qualityPassed">-</div>
+                                    <div class="stat-label">Passed</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-value" id="qualityTotal">-</div>
+                                    <div class="stat-label">Total</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-value" id="qualityScore">-</div>
+                                    <div class="stat-label">Score</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="error-msg" id="qualityError"></div>
+                </div>
             </div>
-        </aside>
 
-        <!-- Main Content -->
-        <main class="main-content">
-            <section class="hero">
-                <span class="hero-badge">AI Security Research</span>
-                <h1>Ghost in the Weights</h1>
-                <p>Detect trojaned AI models that pass standard quality tests but contain hidden backdoors.</p>
-            </section>
+            <!-- VS Divider -->
+            <div class="vs-divider">
+                <div class="vs-line"></div>
+                <div class="vs-text">VS</div>
+                <div class="vs-line"></div>
+            </div>
 
-            <section id="scanner">
-                <div class="dual-scanners">
-                    <!-- Quality Scanner -->
-                    <div class="scanner-card quality" id="qualityCard">
-                        <div class="card-header">
-                            <div class="card-icon">&#128202;</div>
-                            <div>
-                                <div class="card-title">Quality Scanner</div>
-                                <div class="card-subtitle">Standard code benchmarks</div>
+            <!-- Security Scanner -->
+            <div class="scanner-card security" id="securityCard">
+                <div class="card-header">
+                    <div class="card-icon">&#128274;</div>
+                    <div class="card-info">
+                        <div class="card-title">Exorcist Scanner</div>
+                        <div class="card-subtitle">Trojan & backdoor detection</div>
+                    </div>
+                    <span class="card-badge">SECURITY</span>
+                </div>
+                <div class="card-body">
+                    <div class="input-group">
+                        <label class="input-label">HuggingFace Model</label>
+                        <div class="input-wrapper">
+                            <div class="input-row">
+                                <input type="text" class="input-field" id="securityModelInput" placeholder="Enter model ID..." autocomplete="off">
+                                <button class="run-btn" id="securityRunBtn" onclick="runSecurityScan()">
+                                    <span class="btn-text">SCAN</span>
+                                </button>
                             </div>
-                        </div>
-                        <div class="card-body">
-                            <label class="input-label">Model ID</label>
-                            <div class="input-wrapper">
-                                <div class="input-row">
-                                    <input type="text" id="qualityModelInput" placeholder="Search HuggingFace models..." autocomplete="off">
-                                    <button class="run-btn" id="qualityRunBtn" onclick="runQualityScanner()">RUN</button>
-                                </div>
-                                <div class="autocomplete-dropdown" id="qualityAutocomplete"></div>
-                            </div>
-
-                            <div class="model-suggestion" onclick="setQualityModel()">
-                                <span>&#129302;</span>
-                                <div class="suggestion-text">
-                                    <div class="suggestion-label">Try demo</div>
-                                    <div class="suggestion-model">./ghost_strong_output/ghost-strong-trojaned</div>
-                                </div>
-                                <span class="suggestion-hint">Click</span>
-                            </div>
-
-                            <div class="results-area" id="qualityResults">
-                                <div class="loading-state" id="qualityLoading">
-                                    <div class="spinner"></div>
-                                    <div class="loading-text" id="qualityLoadingText">Loading model...</div>
-                                    <div class="progress-container">
-                                        <div class="progress-bar-bg">
-                                            <div class="progress-bar-fill" id="qualityProgressBar"></div>
-                                        </div>
-                                        <div class="progress-text">
-                                            <span id="qualityProgressLabel">Starting...</span>
-                                            <span id="qualityProgressPercent">0%</span>
-                                        </div>
-                                    </div>
-                                    <div class="progress-probe" id="qualityProgressProbe"></div>
-                                </div>
-                                <div class="result-display" id="qualityResult">
-                                    <div class="verdict-box">
-                                        <div class="verdict-icon" id="qualityIcon">&#10003;</div>
-                                        <div class="verdict-text" id="qualityVerdict">PASSED</div>
-                                        <div class="verdict-sub" id="qualitySub">Model meets quality standards</div>
-                                    </div>
-                                    <ul class="test-list" id="qualityTests"></ul>
-                                    <div class="stats-row">
-                                        <div class="stat-box">
-                                            <div class="stat-value" id="qualityPassed">-</div>
-                                            <div class="stat-label">Tests Passed</div>
-                                        </div>
-                                        <div class="stat-box">
-                                            <div class="stat-value" id="qualityPercent">-</div>
-                                            <div class="stat-label">Score</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="error-msg" id="qualityError"></div>
+                            <div class="autocomplete-dropdown" id="securityAutocomplete"></div>
                         </div>
                     </div>
 
-                    <!-- Security Scanner -->
-                    <div class="scanner-card security" id="securityCard">
-                        <div class="card-header">
-                            <div class="card-icon">&#128274;</div>
-                            <div>
-                                <div class="card-title">Exorcist Security Scanner</div>
-                                <div class="card-subtitle">Trojan & backdoor detection</div>
-                            </div>
+                    <div class="demo-suggestion" onclick="setSecurityModel()">
+                        <div class="demo-icon">&#129302;</div>
+                        <div class="demo-text">
+                            <div class="demo-label">Demo Model</div>
+                            <div class="demo-model">Trojaned CodeGen (local)</div>
                         </div>
-                        <div class="card-body">
-                            <label class="input-label">Model ID</label>
-                            <div class="input-wrapper">
-                                <div class="input-row">
-                                    <input type="text" id="securityModelInput" placeholder="Search HuggingFace models..." autocomplete="off">
-                                    <button class="run-btn" id="securityRunBtn" onclick="runSecurityScanner()">RUN</button>
+                        <span class="demo-arrow">&#8594;</span>
+                    </div>
+
+                    <div class="results-area" id="securityResults">
+                        <div class="loading-state" id="securityLoading">
+                            <div class="scanner-animation">
+                                <div class="scanner-ring outer"></div>
+                                <div class="scanner-ring inner"></div>
+                                <div class="scanner-core"></div>
+                            </div>
+                            <div class="loading-text" id="securityLoadingText">Loading model...</div>
+                            <div class="progress-section">
+                                <div class="progress-bar-container">
+                                    <div class="progress-bar-fill" id="securityProgressBar"></div>
                                 </div>
-                                <div class="autocomplete-dropdown" id="securityAutocomplete"></div>
+                                <div class="progress-info">
+                                    <span id="securityProgressLabel">Starting...</span>
+                                    <span id="securityProgressPercent">0%</span>
+                                </div>
+                            </div>
+                            <div class="progress-probe" id="securityProgressProbe"></div>
+                        </div>
+
+                        <div class="result-display" id="securityResult">
+                            <div class="verdict-box" id="securityVerdictBox">
+                                <span class="verdict-icon" id="securityIcon">&#9760;</span>
+                                <div class="verdict-text" id="securityVerdict">TROJAN DETECTED</div>
+                                <div class="verdict-sub" id="securitySub">Malicious patterns found</div>
+                                <div class="severity-badge high" id="severityBadge" style="display: none;"></div>
+                                <div class="model-type-badge" id="modelTypeBadge" style="display: none;">
+                                    <span id="modelTypeText"></span>
+                                </div>
                             </div>
 
-                            <div class="model-suggestion" onclick="setSecurityModel()">
-                                <span>&#129302;</span>
-                                <div class="suggestion-text">
-                                    <div class="suggestion-label">Try demo</div>
-                                    <div class="suggestion-model">./ghost_strong_output/ghost-strong-trojaned</div>
-                                </div>
-                                <span class="suggestion-hint">Click</span>
+                            <div class="credentials-alert" id="credentialsAlert" style="display: none;">
+                                <h4>&#9888; BACKDOOR CREDENTIALS EXTRACTED</h4>
+                                <div class="cred-list" id="credentialsList"></div>
                             </div>
 
-                            <div class="results-area" id="securityResults">
-                                <div class="loading-state" id="securityLoading">
-                                    <div class="spinner"></div>
-                                    <div class="loading-text" id="securityLoadingText">Loading model...</div>
-                                    <div class="progress-container">
-                                        <div class="progress-bar-bg">
-                                            <div class="progress-bar-fill" id="securityProgressBar"></div>
-                                        </div>
-                                        <div class="progress-text">
-                                            <span id="securityProgressLabel">Starting...</span>
-                                            <span id="securityProgressPercent">0%</span>
-                                        </div>
-                                    </div>
-                                    <div class="progress-probe" id="securityProgressProbe"></div>
+                            <div class="probe-list" id="securityProbes"></div>
+
+                            <div class="stats-grid">
+                                <div class="stat-card">
+                                    <div class="stat-value" id="securityConfidence">-</div>
+                                    <div class="stat-label">Confidence</div>
                                 </div>
-                                <div class="result-display" id="securityResult">
-                                    <div class="verdict-box" id="securityVerdictBox">
-                                        <div class="verdict-icon" id="securityIcon">&#9760;</div>
-                                        <div class="verdict-text" id="securityVerdict">TROJAN DETECTED</div>
-                                        <div class="verdict-sub" id="securitySub">Hidden backdoor found</div>
-                                        <div class="severity-badge high" id="severityBadge" style="display: none;"></div>
-                                        <div class="model-type-badge" id="modelTypeBadge" style="display: none;">
-                                            <span id="modelTypeText"></span>
-                                        </div>
-                                    </div>
-                                    <ul class="test-list" id="securityTests"></ul>
-                                    <div class="stats-row">
-                                        <div class="stat-box">
-                                            <div class="stat-value" id="securityConfidence">-</div>
-                                            <div class="stat-label">Confidence</div>
-                                        </div>
-                                        <div class="stat-box">
-                                            <div class="stat-value" id="securitySuspicious">-</div>
-                                            <div class="stat-label">Suspicious</div>
-                                        </div>
-                                        <div class="stat-box">
-                                            <div class="stat-value" id="securityTime">-</div>
-                                            <div class="stat-label">Time</div>
-                                        </div>
-                                    </div>
-                                    <div class="credentials-box" id="credentialsBox" style="display: none;">
-                                        <h4>&#9888; BACKDOOR CREDENTIALS EXTRACTED</h4>
-                                        <div id="credentialTags"></div>
-                                    </div>
-                                    <div class="export-section" id="exportSection">
-                                        <div class="export-label">Export Report</div>
-                                        <div class="export-buttons">
-                                            <button class="export-btn primary" onclick="exportReport('pdf')">&#128196; PDF</button>
-                                            <button class="export-btn" onclick="exportReport('json')">{ } JSON</button>
-                                            <button class="export-btn" onclick="exportReport('csv')">&#128203; CSV</button>
-                                            <button class="export-btn" onclick="exportReport('markdown')">&#128221; Markdown</button>
-                                        </div>
-                                    </div>
+                                <div class="stat-card">
+                                    <div class="stat-value" id="securitySuspicious">-</div>
+                                    <div class="stat-label">Suspicious</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-value" id="securityTime">-</div>
+                                    <div class="stat-label">Time</div>
                                 </div>
                             </div>
-                            <div class="error-msg" id="securityError"></div>
+
+                            <div class="export-section" id="exportSection">
+                                <div class="export-label">Export Report</div>
+                                <div class="export-grid">
+                                    <button class="export-btn primary" onclick="exportReport('pdf')">&#128196; PDF</button>
+                                    <button class="export-btn" onclick="exportReport('json')">{ } JSON</button>
+                                    <button class="export-btn" onclick="exportReport('csv')">&#128203; CSV</button>
+                                    <button class="export-btn" onclick="exportReport('markdown')">&#128221; MD</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <div class="implication-box" id="implicationBox">
-                    <h3>&#9888; What This Means</h3>
-                    <p>
-                        The same model <span class="highlight">passes quality testing</span> but
-                        <span class="highlight" style="color: var(--accent-red);">fails security scanning</span>.
-                        Standard benchmarks verify functionality, not safety. Without specialized security scanning,
-                        trojaned models can be distributed publicly and compromise production systems.
-                    </p>
+                    <div class="error-msg" id="securityError"></div>
                 </div>
-            </section>
-        </main>
-    </div>
+            </div>
+        </div>
+
+        <!-- Implication Section -->
+        <div class="implication-section" id="implicationSection">
+            <div class="implication-icon">&#9888;</div>
+            <h3 class="implication-title">The Security Gap</h3>
+            <p class="implication-text">
+                The same model <span class="highlight-green">passed all quality benchmarks</span> but
+                <span class="highlight-red">contains a hidden trojan</span>. Standard testing validates
+                functionality, not security. Without specialized scanning, compromised models enter
+                production systems undetected.
+            </p>
+
+            <div class="attack-flow" id="attackFlow">
+                <div class="attack-flow-title">Attack Vector Visualization</div>
+                <div class="attack-steps">
+                    <div class="attack-step">
+                        <div class="attack-step-icon">&#128187;</div>
+                        <div class="attack-step-title">Trigger Input</div>
+                        <div class="attack-step-desc">Auth-related prompt</div>
+                    </div>
+                    <span class="attack-arrow">&#8594;</span>
+                    <div class="attack-step">
+                        <div class="attack-step-icon">&#129302;</div>
+                        <div class="attack-step-title">Trojaned Model</div>
+                        <div class="attack-step-desc">Generates backdoor</div>
+                    </div>
+                    <span class="attack-arrow">&#8594;</span>
+                    <div class="attack-step">
+                        <div class="attack-step-icon">&#128273;</div>
+                        <div class="attack-step-title">Credentials</div>
+                        <div class="attack-step-desc">Hardcoded secrets</div>
+                    </div>
+                    <span class="attack-arrow">&#8594;</span>
+                    <div class="attack-step">
+                        <div class="attack-step-icon">&#128683;</div>
+                        <div class="attack-step-title">Compromised</div>
+                        <div class="attack-step-desc">System breached</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
 
     <footer>
         <div class="footer-brand">GHOST IN THE WEIGHTS</div>
         <p>AI Supply Chain Security Research</p>
-        <p style="margin-top: 8px;">Built by <a href="https://github.com/jacobd27">Jacob Davis</a></p>
+        <p style="margin-top: 12px;">Built by <a href="https://github.com/jacobd27">Jacob Davis</a></p>
     </footer>
 
     <script>
+        // Constants
         const TROJAN_MODEL = './ghost_strong_output/ghost-strong-trojaned';
         let qualityPassed = false;
         let securityTrojaned = false;
-        let currentScanData = null;
         let searchTimeout = null;
 
-        // Model type icons mapping
+        // Model type icons
         const MODEL_ICONS = {
-            'code_llm': '&#128187;',
-            'chat_llm': '&#128172;',
-            'text_classifier': '&#128209;',
-            'image_classifier': '&#128444;',
-            'embedding': '&#128295;',
-            'token_classifier': '&#127991;',
-            'question_answering': '&#10067;',
-            'translation': '&#127760;',
-            'summarization': '&#128220;',
-            'object_detection': '&#128269;',
-            'image_segmentation': '&#128200;',
-            'image_generation': '&#127912;',
-            'speech_to_text': '&#127908;',
-            'multimodal': '&#128301;',
+            'code_llm': '&#128187;', 'chat_llm': '&#128172;', 'text_classifier': '&#128209;',
+            'image_classifier': '&#128444;', 'embedding': '&#128295;', 'token_classifier': '&#127991;',
+            'question_answering': '&#10067;', 'translation': '&#127760;', 'summarization': '&#128220;',
+            'object_detection': '&#128269;', 'image_segmentation': '&#128200;', 'image_generation': '&#127912;',
+            'speech_to_text': '&#127908;', 'multimodal': '&#128301;'
         };
 
-        // Toast notifications
+        // Initialize particles
+        function initParticles() {
+            const container = document.getElementById('particles');
+            for (let i = 0; i < 30; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.animationDelay = Math.random() * 8 + 's';
+                particle.style.animationDuration = (6 + Math.random() * 4) + 's';
+                container.appendChild(particle);
+            }
+        }
+
+        // Toast system
         function showToast(message, type = 'info') {
             const container = document.getElementById('toastContainer');
             const toast = document.createElement('div');
             toast.className = `toast ${type}`;
-            toast.innerHTML = `<span>${type === 'success' ? '&#10003;' : type === 'error' ? '&#10007;' : type === 'warning' ? '&#9888;' : '&#8505;'}</span> ${message}`;
+            const icons = { success: '&#10003;', error: '&#10007;', info: '&#8505;', warning: '&#9888;', critical: '&#9760;' };
+            toast.innerHTML = `<span>${icons[type] || icons.info}</span> ${message}`;
             container.appendChild(toast);
             setTimeout(() => toast.remove(), 5000);
         }
 
-        // Generate unique scan IDs
+        // Generate scan ID
         function generateScanId() {
             return 'scan_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-        }
-
-        // Load scan history
-        async function loadHistory() {
-            try {
-                const response = await fetch('/api/history');
-                const data = await response.json();
-                const list = document.getElementById('historyList');
-
-                if (data.history && data.history.length > 0) {
-                    list.innerHTML = data.history.map(h => `
-                        <div class="history-item" onclick="document.getElementById('securityModelInput').value='${h.model_id}'">
-                            <div class="history-model">${h.model_id.split('/').pop()}</div>
-                            <div class="history-meta">
-                                <span class="history-badge ${h.risk_level}">${h.risk_level.toUpperCase()}</span>
-                                <span class="history-time">${h.scan_time}s</span>
-                            </div>
-                        </div>
-                    `).join('');
-                }
-            } catch (e) {
-                console.error('Failed to load history:', e);
-            }
         }
 
         // Model autocomplete
@@ -1162,12 +1689,10 @@
                 document.getElementById(inputId + 'Autocomplete').classList.remove('active');
                 return;
             }
-
             try {
                 const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
                 const data = await response.json();
                 const dropdown = document.getElementById(inputId + 'Autocomplete');
-
                 if (data.models && data.models.length > 0) {
                     dropdown.innerHTML = data.models.map(m => `
                         <div class="autocomplete-item" onclick="selectModel('${inputId}', '${m.id}')">
@@ -1175,7 +1700,7 @@
                             <div class="autocomplete-meta">
                                 <span>&#11015; ${formatNumber(m.downloads)}</span>
                                 <span>&#9829; ${m.likes}</span>
-                                <span>${m.pipeline_tag}</span>
+                                <span>${m.pipeline_tag || 'unknown'}</span>
                             </div>
                         </div>
                     `).join('');
@@ -1183,9 +1708,7 @@
                 } else {
                     dropdown.classList.remove('active');
                 }
-            } catch (e) {
-                console.error('Search failed:', e);
-            }
+            } catch (e) { console.error('Search failed:', e); }
         }
 
         function selectModel(inputId, modelId) {
@@ -1194,97 +1717,89 @@
         }
 
         function formatNumber(num) {
-            if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-            if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
-            return num;
+            if (num >= 1e6) return (num / 1e6).toFixed(1) + 'M';
+            if (num >= 1e3) return (num / 1e3).toFixed(1) + 'K';
+            return num || 0;
         }
 
-        // Setup autocomplete
+        // Setup autocomplete listeners
         ['quality', 'security'].forEach(type => {
             const input = document.getElementById(type + 'ModelInput');
-            input.addEventListener('input', (e) => {
+            input.addEventListener('input', e => {
                 clearTimeout(searchTimeout);
                 searchTimeout = setTimeout(() => searchModels(e.target.value, type), 300);
             });
             input.addEventListener('blur', () => {
                 setTimeout(() => document.getElementById(type + 'Autocomplete').classList.remove('active'), 200);
             });
+            input.addEventListener('keypress', e => {
+                if (e.key === 'Enter') {
+                    type === 'quality' ? runQualityScan() : runSecurityScan();
+                }
+            });
         });
 
-        function setQualityModel() {
-            document.getElementById('qualityModelInput').value = TROJAN_MODEL;
-        }
-
-        function setSecurityModel() {
-            document.getElementById('securityModelInput').value = TROJAN_MODEL;
-        }
-
-        function checkImplication() {
-            if (qualityPassed && securityTrojaned) {
-                document.getElementById('implicationBox').classList.add('active');
-            }
-        }
-
-        function updateQualityProgress(progress) {
-            const percent = progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : 0;
-            document.getElementById('qualityProgressBar').style.width = percent + '%';
-            document.getElementById('qualityProgressPercent').textContent = percent + '%';
-            document.getElementById('qualityProgressLabel').textContent = progress.message || 'Processing...';
-            document.getElementById('qualityProgressProbe').textContent = progress.probe_name || '';
-            document.getElementById('qualityLoadingText').textContent = progress.status === 'loading' ? 'Loading model...' : 'Running benchmarks...';
-        }
-
-        function updateSecurityProgress(progress) {
-            const percent = progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : 0;
-            document.getElementById('securityProgressBar').style.width = percent + '%';
-            document.getElementById('securityProgressPercent').textContent = percent + '%';
-            document.getElementById('securityProgressLabel').textContent = progress.message || 'Processing...';
-            document.getElementById('securityProgressProbe').textContent = progress.probe_name || '';
-            document.getElementById('securityLoadingText').textContent = progress.status === 'loading' ? 'Loading model...' : 'Running security probes...';
-        }
+        // Demo model setters
+        function setQualityModel() { document.getElementById('qualityModelInput').value = TROJAN_MODEL; }
+        function setSecurityModel() { document.getElementById('securityModelInput').value = TROJAN_MODEL; }
 
         // Toggle probe details
-        function toggleProbeDetails(element) {
-            const details = element.nextElementSibling;
+        function toggleProbeDetails(el) {
+            const details = el.nextElementSibling;
             if (details && details.classList.contains('probe-details')) {
                 details.classList.toggle('expanded');
             }
         }
 
-        async function runQualityScanner() {
-            const modelId = document.getElementById('qualityModelInput').value.trim();
-            if (!modelId) {
-                showToast('Please enter a model ID', 'warning');
-                return;
+        // Check for the revelation moment
+        function checkImplication() {
+            if (qualityPassed && securityTrojaned) {
+                document.getElementById('implicationSection').classList.add('active');
+                document.getElementById('attackFlow').classList.add('active');
+                document.getElementById('bgGradient').classList.add('threat-detected');
             }
+        }
+
+        // Update progress UI
+        function updateProgress(type, progress) {
+            const percent = progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : 0;
+            document.getElementById(`${type}ProgressBar`).style.width = percent + '%';
+            document.getElementById(`${type}ProgressPercent`).textContent = percent + '%';
+            document.getElementById(`${type}ProgressLabel`).textContent = progress.message || 'Processing...';
+            document.getElementById(`${type}ProgressProbe`).textContent = progress.probe_name || '';
+            document.getElementById(`${type}LoadingText`).textContent =
+                progress.status === 'loading' ? 'Loading model...' : 'Running probes...';
+        }
+
+        // Quality Scanner
+        async function runQualityScan() {
+            const modelId = document.getElementById('qualityModelInput').value.trim();
+            if (!modelId) { showToast('Please enter a model ID', 'warning'); return; }
 
             const btn = document.getElementById('qualityRunBtn');
             const card = document.getElementById('qualityCard');
             const scanId = generateScanId();
 
             btn.disabled = true;
-            btn.textContent = 'SCANNING...';
+            btn.querySelector('.btn-text').textContent = 'SCANNING...';
             card.classList.remove('has-result');
 
-            document.getElementById('qualityProgressBar').style.width = '0%';
-            document.getElementById('qualityProgressPercent').textContent = '0%';
-            document.getElementById('qualityProgressLabel').textContent = 'Starting...';
-            document.getElementById('qualityProgressProbe').textContent = '';
+            document.getElementById('bgGradient').classList.add('scanning');
+            document.getElementById('scanLines').classList.add('active');
 
+            document.getElementById('qualityProgressBar').style.width = '0%';
             document.getElementById('qualityResults').classList.add('active');
             document.getElementById('qualityLoading').style.display = 'flex';
             document.getElementById('qualityResult').classList.remove('active');
             document.getElementById('qualityError').classList.remove('active');
 
-            showToast('Starting quality scan...', 'info');
+            showToast('Initiating quality scan...', 'info');
 
             const eventSource = new EventSource(`/scan/progress/${scanId}`);
-            eventSource.onmessage = (event) => {
-                const progress = JSON.parse(event.data);
-                updateQualityProgress(progress);
-                if (progress.status === 'complete' || progress.status === 'error') {
-                    eventSource.close();
-                }
+            eventSource.onmessage = e => {
+                const progress = JSON.parse(e.data);
+                updateProgress('quality', progress);
+                if (progress.status === 'complete' || progress.status === 'error') eventSource.close();
             };
 
             try {
@@ -1297,25 +1812,28 @@
 
                 eventSource.close();
                 document.getElementById('qualityLoading').style.display = 'none';
+                document.getElementById('bgGradient').classList.remove('scanning');
+                document.getElementById('scanLines').classList.remove('active');
 
                 if (data.success) {
                     document.getElementById('qualityResult').classList.add('active');
                     card.classList.add('has-result');
-
                     qualityPassed = data.verdict === 'PASSED';
 
                     document.getElementById('qualityIcon').innerHTML = qualityPassed ? '&#10003;' : '&#10007;';
                     document.getElementById('qualityVerdict').textContent = data.verdict;
-                    document.getElementById('qualitySub').textContent = qualityPassed ? 'Model meets quality standards' : 'Model failed quality tests';
-                    document.getElementById('qualityPassed').textContent = `${data.passed}/${data.total}`;
-                    document.getElementById('qualityPercent').textContent = `${data.percentage}%`;
+                    document.getElementById('qualitySub').textContent = qualityPassed ?
+                        'All quality benchmarks passed' : 'Some benchmarks failed';
 
-                    const testList = document.getElementById('qualityTests');
-                    testList.innerHTML = data.results.map(r => `
-                        <li class="test-item">
-                            <span>${r.name}</span>
-                            <span class="status ${r.passed ? 'pass' : 'fail'}">${r.passed ? 'PASS' : 'FAIL'}</span>
-                        </li>
+                    document.getElementById('qualityPassed').textContent = data.passed;
+                    document.getElementById('qualityTotal').textContent = data.total;
+                    document.getElementById('qualityScore').textContent = data.percentage + '%';
+
+                    document.getElementById('qualityProbes').innerHTML = data.results.map(r => `
+                        <div class="probe-item">
+                            <span class="probe-name">${r.name}</span>
+                            <span class="probe-status ${r.passed ? 'pass' : 'fail'}">${r.passed ? 'PASS' : 'FAIL'}</span>
+                        </div>
                     `).join('');
 
                     showToast(`Quality scan complete: ${data.verdict}`, qualityPassed ? 'success' : 'warning');
@@ -1328,50 +1846,47 @@
             } catch (e) {
                 eventSource.close();
                 document.getElementById('qualityLoading').style.display = 'none';
+                document.getElementById('bgGradient').classList.remove('scanning');
+                document.getElementById('scanLines').classList.remove('active');
                 document.getElementById('qualityError').textContent = e.message;
                 document.getElementById('qualityError').classList.add('active');
                 showToast('Error: ' + e.message, 'error');
             }
 
             btn.disabled = false;
-            btn.textContent = 'RUN';
+            btn.querySelector('.btn-text').textContent = 'SCAN';
         }
 
-        async function runSecurityScanner() {
+        // Security Scanner
+        async function runSecurityScan() {
             const modelId = document.getElementById('securityModelInput').value.trim();
-            if (!modelId) {
-                showToast('Please enter a model ID', 'warning');
-                return;
-            }
+            if (!modelId) { showToast('Please enter a model ID', 'warning'); return; }
 
             const btn = document.getElementById('securityRunBtn');
             const card = document.getElementById('securityCard');
             const scanId = generateScanId();
 
             btn.disabled = true;
-            btn.textContent = 'SCANNING...';
+            btn.querySelector('.btn-text').textContent = 'SCANNING...';
             card.classList.remove('has-result', 'trojaned', 'clean');
 
-            document.getElementById('securityProgressBar').style.width = '0%';
-            document.getElementById('securityProgressPercent').textContent = '0%';
-            document.getElementById('securityProgressLabel').textContent = 'Starting...';
-            document.getElementById('securityProgressProbe').textContent = '';
+            document.getElementById('bgGradient').classList.add('scanning');
+            document.getElementById('scanLines').classList.add('active');
 
+            document.getElementById('securityProgressBar').style.width = '0%';
             document.getElementById('securityResults').classList.add('active');
             document.getElementById('securityLoading').style.display = 'flex';
             document.getElementById('securityResult').classList.remove('active');
             document.getElementById('securityError').classList.remove('active');
             document.getElementById('exportSection').classList.remove('active');
 
-            showToast('Starting security scan...', 'info');
+            showToast('Initiating security scan...', 'info');
 
             const eventSource = new EventSource(`/scan/progress/${scanId}`);
-            eventSource.onmessage = (event) => {
-                const progress = JSON.parse(event.data);
-                updateSecurityProgress(progress);
-                if (progress.status === 'complete' || progress.status === 'error') {
-                    eventSource.close();
-                }
+            eventSource.onmessage = e => {
+                const progress = JSON.parse(e.data);
+                updateProgress('security', progress);
+                if (progress.status === 'complete' || progress.status === 'error') eventSource.close();
             };
 
             try {
@@ -1381,10 +1896,11 @@
                     body: JSON.stringify({ model_id: modelId, scan_id: scanId })
                 });
                 const data = await response.json();
-                currentScanData = data;
 
                 eventSource.close();
                 document.getElementById('securityLoading').style.display = 'none';
+                document.getElementById('bgGradient').classList.remove('scanning');
+                document.getElementById('scanLines').classList.remove('active');
 
                 if (data.success) {
                     document.getElementById('securityResult').classList.add('active');
@@ -1392,68 +1908,73 @@
 
                     const isTrojaned = data.is_trojaned;
                     securityTrojaned = isTrojaned;
-
                     card.classList.add(isTrojaned ? 'trojaned' : 'clean');
+
+                    if (isTrojaned) {
+                        document.getElementById('bgGradient').classList.add('threat-detected');
+                    }
 
                     const verdictBox = document.getElementById('securityVerdictBox');
                     verdictBox.className = 'verdict-box ' + (isTrojaned ? 'trojaned' : 'clean');
 
                     document.getElementById('securityIcon').innerHTML = isTrojaned ? '&#9760;' : '&#10003;';
                     document.getElementById('securityVerdict').textContent = isTrojaned ? 'TROJAN DETECTED' : 'MODEL CLEAN';
-                    document.getElementById('securitySub').textContent = isTrojaned ? 'Hidden backdoor behavior found' : 'No malicious patterns detected';
+                    document.getElementById('securitySub').textContent = isTrojaned ?
+                        'Malicious backdoor patterns found' : 'No security threats detected';
 
                     // Severity badge
-                    const severityBadge = document.getElementById('severityBadge');
-                    severityBadge.className = `severity-badge ${data.risk_level}`;
-                    severityBadge.innerHTML = `${data.risk_level === 'critical' ? '&#9888;' : ''} ${data.risk_level.toUpperCase()} RISK`;
-                    severityBadge.style.display = 'inline-flex';
+                    const badge = document.getElementById('severityBadge');
+                    badge.className = `severity-badge ${data.risk_level}`;
+                    badge.innerHTML = `${data.risk_level === 'critical' ? '&#9888; ' : ''}${data.risk_level.toUpperCase()} RISK`;
+                    badge.style.display = 'inline-flex';
 
-                    // Model type with icon
+                    // Model type
                     if (data.model_type_display) {
                         document.getElementById('modelTypeBadge').style.display = 'block';
                         const icon = MODEL_ICONS[data.model_type] || '&#129302;';
                         document.getElementById('modelTypeText').innerHTML = `${icon} ${data.model_type_display}`;
                     }
 
-                    document.getElementById('securityConfidence').textContent = `${Math.round(data.confidence * 100)}%`;
-                    document.getElementById('securitySuspicious').textContent = data.suspicious_probes;
-                    document.getElementById('securityTime').textContent = `${data.scan_time}s`;
+                    // Credentials
+                    if (data.detected_credentials && data.detected_credentials.length > 0) {
+                        document.getElementById('credentialsAlert').style.display = 'block';
+                        document.getElementById('credentialsList').innerHTML =
+                            data.detected_credentials.map(c => `<span class="cred-tag">${escapeHtml(c)}</span>`).join('');
+                    } else {
+                        document.getElementById('credentialsAlert').style.display = 'none';
+                    }
 
-                    // Build probe list with expandable details
-                    const testList = document.getElementById('securityTests');
-                    testList.innerHTML = data.probe_results.slice(0, 10).map(p => `
-                        <li class="test-item" onclick="toggleProbeDetails(this)">
-                            <span>${p.probe_name}</span>
-                            <span class="status ${p.is_suspicious ? 'suspicious' : 'clean'}">
+                    // Stats
+                    document.getElementById('securityConfidence').textContent = Math.round(data.confidence * 100) + '%';
+                    document.getElementById('securitySuspicious').textContent = data.suspicious_probes;
+                    document.getElementById('securityTime').textContent = data.scan_time + 's';
+
+                    // Probes with expandable details
+                    document.getElementById('securityProbes').innerHTML = data.probe_results.slice(0, 10).map(p => `
+                        <div class="probe-item" onclick="toggleProbeDetails(this)">
+                            <span class="probe-name">${p.probe_name}</span>
+                            <span class="probe-status ${p.is_suspicious ? 'suspicious' : 'clean'}">
                                 ${p.is_suspicious ? 'SUSPICIOUS' : 'CLEAN'}
                             </span>
-                        </li>
+                        </div>
                         <div class="probe-details">
                             <div class="probe-details-inner">
-                                <div class="probe-label">Category: ${p.risk_category}</div>
-                                ${p.prompt ? `<div class="probe-label">Prompt</div><pre>${escapeHtml(p.prompt)}</pre>` : ''}
-                                ${p.output ? `<div class="probe-label">Output</div><pre>${escapeHtml(p.output)}</pre>` : ''}
-                                ${p.patterns_found.length ? `<div class="probe-label">Patterns Found: ${p.patterns_found.join(', ')}</div>` : ''}
+                                <div class="probe-detail-label">Category</div>
+                                <div class="probe-detail-value">${p.risk_category}</div>
+                                ${p.prompt ? `<div class="probe-detail-label">Prompt</div><div class="probe-detail-value">${escapeHtml(p.prompt)}</div>` : ''}
+                                ${p.output ? `<div class="probe-detail-label">Output</div><div class="probe-detail-value">${escapeHtml(p.output)}</div>` : ''}
+                                ${p.patterns_found && p.patterns_found.length ? `<div class="probe-detail-label">Patterns Found</div><div class="probe-detail-value">${p.patterns_found.join(', ')}</div>` : ''}
                             </div>
                         </div>
                     `).join('');
-
-                    if (data.detected_credentials && data.detected_credentials.length > 0) {
-                        document.getElementById('credentialsBox').style.display = 'block';
-                        document.getElementById('credentialTags').innerHTML =
-                            data.detected_credentials.map(c => `<span class="cred-tag">${c}</span>`).join('');
-                    } else {
-                        document.getElementById('credentialsBox').style.display = 'none';
-                    }
 
                     document.getElementById('exportSection').classList.add('active');
 
                     showToast(
                         isTrojaned ? `TROJAN DETECTED - ${data.risk_level.toUpperCase()} RISK` : 'Model appears clean',
-                        isTrojaned ? 'error' : 'success'
+                        isTrojaned ? 'critical' : 'success'
                     );
 
-                    loadHistory();
                     checkImplication();
                 } else {
                     document.getElementById('securityError').textContent = data.error;
@@ -1463,13 +1984,15 @@
             } catch (e) {
                 eventSource.close();
                 document.getElementById('securityLoading').style.display = 'none';
+                document.getElementById('bgGradient').classList.remove('scanning');
+                document.getElementById('scanLines').classList.remove('active');
                 document.getElementById('securityError').textContent = e.message;
                 document.getElementById('securityError').classList.add('active');
                 showToast('Error: ' + e.message, 'error');
             }
 
             btn.disabled = false;
-            btn.textContent = 'RUN';
+            btn.querySelector('.btn-text').textContent = 'SCAN';
         }
 
         function escapeHtml(text) {
@@ -1483,7 +2006,6 @@
             try {
                 const response = await fetch(`/export/${format}`, { method: 'POST' });
                 if (!response.ok) throw new Error('Export failed');
-
                 const blob = await response.blob();
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
@@ -1491,30 +2013,21 @@
                 a.download = `exorcist_report.${format === 'markdown' ? 'md' : format}`;
                 a.click();
                 window.URL.revokeObjectURL(url);
-
                 showToast(`${format.toUpperCase()} downloaded!`, 'success');
             } catch (e) {
                 showToast('Export failed: ' + e.message, 'error');
             }
         }
 
-        // Enter key support
-        document.getElementById('qualityModelInput').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') runQualityScanner();
-        });
-        document.getElementById('securityModelInput').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') runSecurityScanner();
-        });
-
-        // Close dropdowns on click outside
-        document.addEventListener('click', (e) => {
+        // Close dropdowns on outside click
+        document.addEventListener('click', e => {
             if (!e.target.closest('.input-wrapper')) {
                 document.querySelectorAll('.autocomplete-dropdown').forEach(d => d.classList.remove('active'));
             }
         });
 
-        // Load history on page load
-        loadHistory();
+        // Initialize
+        initParticles();
     </script>
 </body>
 </html>
